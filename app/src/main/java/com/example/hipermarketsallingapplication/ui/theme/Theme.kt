@@ -27,12 +27,12 @@ private val LightColorScheme = lightColorScheme(
     primary = DarkBluePrimary,
     secondary = DarkBlueSecondary,
     tertiary = EnergyRed,
-    background = SurfaceDark,
-    surface = CardBackground,
-    onPrimary = TextLight,
-    onSecondary = TextLight,
-    onBackground = TextLight,
-    onSurface = TextLight
+    background = androidx.compose.ui.graphics.Color(0xFFF1F5F9),
+    surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
+    onPrimary = androidx.compose.ui.graphics.Color(0xFF0F172A),
+    onSecondary = androidx.compose.ui.graphics.Color(0xFF0F172A),
+    onBackground = androidx.compose.ui.graphics.Color(0xFF0F172A),
+    onSurface = androidx.compose.ui.graphics.Color(0xFF0F172A)
 )
 
 @Composable

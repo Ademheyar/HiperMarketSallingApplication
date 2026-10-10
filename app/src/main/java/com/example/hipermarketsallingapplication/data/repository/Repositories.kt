@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import com.example.hipermarketsallingapplication.data.db.DatabaseHelper
 import com.example.hipermarketsallingapplication.data.model.*
+import com.example.hipermarketsallingapplication.utils.JsonHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -173,6 +174,65 @@ class ProductRepository(context: Context) {
     fun reduceStock(productId: Long, qty: Int) {
         val db = dbHelper.writableDatabase
         db.execSQL("UPDATE ${DatabaseHelper.TABLE_PRODUCTS} SET quantity = MAX(0, quantity - ?) WHERE id = ?", arrayOf(qty, productId))
+    }
+
+    fun getProductsByShopItems(shopNames: List<String>): List<Product> {
+        val productIds = mutableSetOf<String>()
+        val db = dbHelper.readableDatabase
+
+        for (shopName in shopNames) {
+            val cursor = db.rawQuery("SELECT Shop_items FROM ${DatabaseHelper.TABLE_SHOPS} WHERE Shop_name = ? LIMIT 1", arrayOf(shopName))
+            if (cursor.moveToFirst()) {
+                val jsonStr = cursor.getString(0) ?: ""
+                val parsed = JsonHelper.loads(jsonStr)
+                if (parsed is List<*>) {
+                    for (item in parsed) {
+                        if (item is List<*>) {
+                            val pId = item.getOrNull(0)?.toString() ?: ""
+                            if (pId.isNotBlank()) {
+                                productIds.add(pId)
+                            }
+                        }
+                    }
+                }
+            }
+            cursor.close()
+        }
+
+        if (productIds.isEmpty()) {
+            return getAllProducts().filter { p -> shopNames.isEmpty() || shopNames.any { sn -> p.atShop.equals(sn, ignoreCase = true) } }
+        }
+
+        val list = mutableListOf<Product>()
+        for (id in productIds) {
+            val cursor = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_PRODUCTS} WHERE id = ? OR code = ? OR barcode = ?", arrayOf(id, id, id))
+            if (cursor.moveToFirst()) {
+                list.add(
+                    Product(
+                        id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                        name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                        code = cursor.getString(cursor.getColumnIndexOrThrow("code")),
+                        type = cursor.getString(cursor.getColumnIndexOrThrow("type")),
+                        barcode = cursor.getString(cursor.getColumnIndexOrThrow("barcode")),
+                        atShop = cursor.getString(cursor.getColumnIndexOrThrow("at_shop")),
+                        quantity = cursor.getInt(cursor.getColumnIndexOrThrow("quantity")),
+                        cost = cursor.getDouble(cursor.getColumnIndexOrThrow("cost")),
+                        tax = cursor.getDouble(cursor.getColumnIndexOrThrow("tax")),
+                        price = cursor.getDouble(cursor.getColumnIndexOrThrow("price")),
+                        includeTax = cursor.getInt(cursor.getColumnIndexOrThrow("include_tax")) == 1,
+                        priceChange = cursor.getInt(cursor.getColumnIndexOrThrow("price_change")) == 1,
+                        moreInfo = cursor.getString(cursor.getColumnIndexOrThrow("more_info")),
+                        images = cursor.getString(cursor.getColumnIndexOrThrow("images")),
+                        description = cursor.getString(cursor.getColumnIndexOrThrow("description")),
+                        service = cursor.getString(cursor.getColumnIndexOrThrow("service")),
+                        defaultQuantity = cursor.getInt(cursor.getColumnIndexOrThrow("default_quantity")),
+                        active = cursor.getInt(cursor.getColumnIndexOrThrow("active")) == 1
+                    )
+                )
+            }
+            cursor.close()
+        }
+        return list
     }
 }
 
@@ -417,6 +477,21 @@ class UserRepository(context: Context) {
         val rows = db.update(DatabaseHelper.TABLE_USERS, cv, "User_name = ?", arrayOf(username))
     }
 
+
+
+    fun updateShopWorkers(shopName: String, shopBrandName: String, shopWorkersJson: String): Int {
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            put("Shop_workers", shopWorkersJson)
+        }
+        return if (shopBrandName.isNotBlank()) {
+            db.update(DatabaseHelper.TABLE_SHOPS, cv, "Shop_name = ? AND Shop_brand_name = ?", arrayOf(shopName, shopBrandName))
+        } else {
+            db.update(DatabaseHelper.TABLE_SHOPS, cv, "Shop_name = ?", arrayOf(shopName))
+        }
+    }
+
+
     fun getAllShops(): List<List<*>> {
         val list = mutableListOf<List<*>>()
         val db = dbHelper.readableDatabase
@@ -459,6 +534,74 @@ class UserRepository(context: Context) {
 
         }
         return db.insert(DatabaseHelper.TABLE_SHOPS, null, cv)
+    }
+
+    fun updateShop(
+        shopName: String,
+        shopBrandName: String,
+        ownerId: String,
+        shopType: String,
+        shopEmail: String,
+        shopCountry: String,
+        shopContact: String,
+        shopworkers: String
+    ): Int {
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            put("Shop_name", shopName)
+            put("Shop_brand_name", shopBrandName)
+            put("Shop_oweners_id", ownerId)
+            put("Shop_type", shopType)
+            put("Shop_email", shopEmail)
+            put("Shop_country", shopCountry)
+            put("Shop_contact", shopContact)
+            put("Shop_workers", shopworkers)
+        }
+        return db.update(DatabaseHelper.TABLE_SHOPS, cv, "Shop_name = ? AND Shop_brand_name = ? ", arrayOf(shopName, shopBrandName))
+    }
+
+    fun getShopItemsJson(shopName: String): String {
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery("SELECT Shop_items FROM ${DatabaseHelper.TABLE_SHOPS} WHERE Shop_name = ? LIMIT 1", arrayOf(shopName))
+        var json = ""
+        if (cursor.moveToFirst()) {
+            json = cursor.getString(0) ?: ""
+        }
+        cursor.close()
+        return json
+    }
+
+    fun updateShopItemsJson(shopName: String, shopItemsJson: String) {
+        val db = dbHelper.writableDatabase
+        val cv = ContentValues().apply {
+            put("Shop_items", shopItemsJson)
+        }
+        db.update(DatabaseHelper.TABLE_SHOPS, cv, "Shop_name = ?", arrayOf(shopName))
+    }
+
+    fun appendProductToShopItems(shopName: String, productId: String, dateStr: String) {
+        val currentJson = getShopItemsJson(shopName)
+        val parsed = JsonHelper.loads(currentJson)
+        val itemsList = mutableListOf<List<String>>()
+
+        if (parsed is List<*>) {
+            for (item in parsed) {
+                if (item is List<*>) {
+                    val pId = item.getOrNull(0)?.toString() ?: ""
+                    val dDate = item.getOrNull(1)?.toString() ?: ""
+                    if (pId.isNotBlank()) {
+                        itemsList.add(listOf(pId, dDate))
+                    }
+                }
+            }
+        }
+
+        if (itemsList.none { it.getOrNull(0) == productId }) {
+            itemsList.add(listOf(productId, dateStr))
+        }
+
+        val updatedJson = JsonHelper.dumps(itemsList)
+        updateShopItemsJson(shopName, updatedJson)
     }
 }
 

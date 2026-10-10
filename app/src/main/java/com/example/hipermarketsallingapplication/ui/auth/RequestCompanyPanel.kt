@@ -35,7 +35,7 @@ fun RequestCompanyPanel(
             value = companyNameQuery,
             onValueChange = { companyNameQuery = it },
             label = { Text("Company Name / Code", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -43,7 +43,7 @@ fun RequestCompanyPanel(
             value = reason,
             onValueChange = { reason = it },
             label = { Text("Reason / Notes for Admin", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth()
         )
         Button(

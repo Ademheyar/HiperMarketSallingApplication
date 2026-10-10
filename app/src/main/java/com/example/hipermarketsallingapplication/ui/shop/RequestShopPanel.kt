@@ -15,12 +15,13 @@ import com.example.hipermarketsallingapplication.ui.theme.*
 fun RequestShopPanel(
     currentUserUsername: String,
     shopsList: List<List<*>>,
-    onRequestSubmitted: (String) -> Unit,
+    onRequestSubmitted: (List<*>) -> Unit,
     onBack: () -> Unit
 ) {
     var shopName by remember { mutableStateOf("") }
     var shopBrand by remember { mutableStateOf("") }
     var requestReason by remember { mutableStateOf("") }
+    var matchingShop by remember { mutableStateOf<List<*>?>(null) }
     var isShopFound by remember { mutableStateOf<Boolean?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
 
@@ -38,17 +39,23 @@ fun RequestShopPanel(
         )
         OutlinedTextField(
             value = shopName,
-            onValueChange = { shopName = it; isShopFound = null; msg = null },
+            onValueChange = { shopName = it; isShopFound = null; matchingShop = null; msg = null },
             label = { Text("Shop Name", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+            ),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
         OutlinedTextField(
             value = shopBrand,
-            onValueChange = { shopBrand = it; isShopFound = null; msg = null },
+            onValueChange = { shopBrand = it; isShopFound = null; matchingShop = null; msg = null },
             label = { Text("Shop Brand", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+            ),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -56,21 +63,25 @@ fun RequestShopPanel(
             value = requestReason,
             onValueChange = { requestReason = it },
             label = { Text("Reason / Request Notes for Admin", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+            ),
             modifier = Modifier.fillMaxWidth()
         )
 
         Button(
             onClick = {
                 if (shopName.isNotBlank()) {
-                    val found = shopsList.any { shop ->
+                    val found = shopsList.find { shop ->
                         val name = shop.getOrNull(1)?.toString() ?: ""
                         val brand = shop.getOrNull(2)?.toString() ?: ""
                         name.equals(shopName.trim(), ignoreCase = true) &&
                                 (shopBrand.isBlank() || brand.equals(shopBrand.trim(), ignoreCase = true))
                     }
-                    isShopFound = found
-                    msg = if (found) {
+                    matchingShop = found
+                    isShopFound = (found != null)
+                    msg = if (found != null) {
                         "Shop found in database! ✓"
                     } else {
                         "Shop not found in database."
@@ -94,17 +105,23 @@ fun RequestShopPanel(
             )
         }
 
-        if (isShopFound == true) {
-            Button(
-                onClick = {
-                    onRequestSubmitted("$shopName (${shopBrand.ifBlank { "MainBrand" }})")
-                    msg = "Shop request sent for '$shopName'! Added 'Waiting For Response: $shopName'."
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Submit Shop Request")
-            }
+        Button(
+            onClick = {
+                val shopid = matchingShop?.getOrNull(0)?.toString() ?: (100..999).random().toString()
+                val name = matchingShop?.getOrNull(1)?.toString() ?: shopName.trim()
+                val brand = matchingShop?.getOrNull(2)?.toString() ?: shopBrand.ifBlank { "MainBrand" }
+                if (name.isNotBlank()) {
+                    onRequestSubmitted(listOf(shopid, name, brand))
+                    msg = "Shop request sent for '$name'!"
+                } else {
+                    msg = "Please enter a shop name."
+                }
+            },
+            enabled = shopName.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Submit Shop Request")
         }
 
         Spacer(modifier = Modifier.height(4.dp))

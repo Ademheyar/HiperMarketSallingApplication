@@ -75,7 +75,7 @@ fun CreateUserPanel(
             value = regFname,
             onValueChange = { regFname = it },
             label = { Text("First Name", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -83,7 +83,7 @@ fun CreateUserPanel(
             value = regLname,
             onValueChange = { regLname = it },
             label = { Text("Last Name", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -99,24 +99,24 @@ fun CreateUserPanel(
                 readOnly = true,
                 label = { Text("Country", color = TextMuted) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryExpanded) },
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier.menuAnchor().fillMaxWidth()
             )
             ExposedDropdownMenu(
                 expanded = countryExpanded,
                 onDismissRequest = { countryExpanded = false },
-                modifier = Modifier.background(CardBackground)
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
             ) {
                 countries.forEach { country ->
                     DropdownMenuItem(
-                        text = { Text(country, color = TextLight) },
+                        text = { Text(country, color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             selectedCountry = country
                             currentCities = LocationData.getCities(country)
                             selectedCity = currentCities.firstOrNull() ?: ""
                             countryExpanded = false
                         },
-                        colors = MenuDefaults.itemColors(textColor = TextLight)
+                        colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.onSurface)
                     )
                 }
             }
@@ -135,22 +135,22 @@ fun CreateUserPanel(
                 readOnly = true,
                 label = { Text("City", color = TextMuted) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityExpanded) },
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier.menuAnchor().fillMaxWidth()
             )
             ExposedDropdownMenu(
                 expanded = cityExpanded,
                 onDismissRequest = { cityExpanded = false },
-                modifier = Modifier.background(CardBackground)
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
             ) {
                 currentCitiesForDropdown.forEach { city ->
                     DropdownMenuItem(
-                        text = { Text(city, color = TextLight) },
+                        text = { Text(city, color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             selectedCity = city
                             cityExpanded = false
                         },
-                        colors = MenuDefaults.itemColors(textColor = TextLight)
+                        colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.onSurface)
                     )
                 }
             }
@@ -168,22 +168,22 @@ fun CreateUserPanel(
                 readOnly = true,
                 label = { Text("Gender", color = TextMuted) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier.menuAnchor().fillMaxWidth()
             )
             ExposedDropdownMenu(
                 expanded = genderExpanded,
                 onDismissRequest = { genderExpanded = false },
-                modifier = Modifier.background(CardBackground)
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
             ) {
                 genders.forEach { gender ->
                     DropdownMenuItem(
-                        text = { Text(gender, color = TextLight) },
+                        text = { Text(gender, color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             selectedGender = gender
                             genderExpanded = false
                         },
-                        colors = MenuDefaults.itemColors(textColor = TextLight)
+                        colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.onSurface)
                     )
                 }
             }
@@ -193,7 +193,7 @@ fun CreateUserPanel(
             value = regUsername,
             onValueChange = { regUsername = it },
             label = { Text("Username (Auto-generated)", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -201,7 +201,7 @@ fun CreateUserPanel(
             value = regPassword,
             onValueChange = { regPassword = it },
             label = { Text("Password", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -210,7 +210,7 @@ fun CreateUserPanel(
             value = regPhone,
             onValueChange = { regPhone = it },
             label = { Text("Phone Number", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth()
         )
 

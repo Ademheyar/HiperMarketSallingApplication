@@ -21,11 +21,12 @@ import com.example.hipermarketsallingapplication.ui.theme.*
 import com.example.hipermarketsallingapplication.ui.viewmodel.*
 
 enum class ManageSubDestination(val label: String, val icon: ImageVector, val description: String) {
-    INVENTORY("Inventory", Icons.Default.Inventory, "Manage products, stock & catalog"),
-    STAFF("Staff", Icons.Default.Group, "Manage staff users & access control"),
-    DOCUMENTS("Documents", Icons.Default.ReceiptLong, "Sales history, receipts & invoices"),
+    DOC("Doc", Icons.Default.ReceiptLong, "Documents, sales history & receipts"),
+    PRODUCT("Product", Icons.Default.Inventory, "Manage products, stock & catalog"),
+    USER("User", Icons.Default.Group, "Manage staff users & access control"),
     TOOLS("Tools", Icons.Default.Build, "POS utilities & system tools"),
-    PROMOTIONS("Promotions", Icons.Default.LocalOffer, "Actions, discounts & special offers")
+    PROMOTIONS("Promotions & Action", Icons.Default.LocalOffer, "Actions, discounts & special offers"),
+    SETTING("Setting", Icons.Default.Settings, "Application preferences & settings")
 }
 
 @Composable
@@ -34,7 +35,7 @@ fun ManageScreen(
     docViewModel: DocViewModel,
     userViewModel: UserViewModel,
     settingsViewModel: SettingsViewModel,
-    initialSubDestination: ManageSubDestination = ManageSubDestination.INVENTORY
+    initialSubDestination: ManageSubDestination = ManageSubDestination.DOC
 ) {
     var selectedSubDestination by remember { mutableStateOf(initialSubDestination) }
     var isPanelCollapsed by remember { mutableStateOf(true) } // Collapsed to icon-size by default to maximize right display space
@@ -180,57 +181,13 @@ fun ManageScreen(
                 .fillMaxHeight()
         ) {
             when (selectedSubDestination) {
-                ManageSubDestination.INVENTORY -> ProductsScreen(viewModel = productViewModel)
-                ManageSubDestination.STAFF -> UsersScreen(viewModel = userViewModel)
-                ManageSubDestination.DOCUMENTS -> DocumentsScreen(viewModel = docViewModel)
+                ManageSubDestination.DOC -> DocumentsScreen(viewModel = docViewModel, userViewModel = userViewModel)
+                ManageSubDestination.PRODUCT -> ProductsScreen(viewModel = productViewModel, userViewModel = userViewModel)
+                ManageSubDestination.USER -> UsersScreen(viewModel = userViewModel)
                 ManageSubDestination.TOOLS -> ToolsScreen()
                 ManageSubDestination.PROMOTIONS -> PromotionsScreen()
+                ManageSubDestination.SETTING -> ShopSettingsScreen(viewModel = settingsViewModel, userViewModel = userViewModel, docViewModel = docViewModel)
             }
-        }
-    }
-}
-
-@Composable
-fun ToolsScreen() {
-    Card(
-        modifier = Modifier.fillMaxSize(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text("POS System Utilities & Tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextLight)
-            Divider(color = DarkBlueDarker)
-            Text("• Thermal Printer Diagnostics & Test Print", color = TextMuted, fontSize = 14.sp)
-            Text("• Barcode Scanner Calibration", color = TextMuted, fontSize = 14.sp)
-            Text("• Database Backup & Cloud Sync Test", color = TextMuted, fontSize = 14.sp)
-            Text("• Cash Drawer Remote Kick Test", color = TextMuted, fontSize = 14.sp)
-        }
-    }
-}
-
-@Composable
-fun PromotionsScreen() {
-    Card(
-        modifier = Modifier.fillMaxSize(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text("Active Promotions & Discounts", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextLight)
-            Divider(color = DarkBlueDarker)
-            Text("• Happy Hour 10% Off Storewide", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text("• Buy 2 Get 1 Free on Selected Beverages", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text("• VIP Member Double Loyalty Points", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
     }
 }

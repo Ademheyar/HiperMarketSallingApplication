@@ -53,7 +53,7 @@ fun ForgotPasswordPanel(
             value = forgetEmailOrUser,
             onValueChange = { forgetEmailOrUser = it },
             label = { Text("Username, Email or Phone", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth()
         )
         Button(

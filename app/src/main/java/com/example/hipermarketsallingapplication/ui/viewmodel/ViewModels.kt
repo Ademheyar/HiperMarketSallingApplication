@@ -9,9 +9,13 @@ import com.example.hipermarketsallingapplication.data.api.ApiSyncManager
 import com.example.hipermarketsallingapplication.data.model.*
 import com.example.hipermarketsallingapplication.data.repository.*
 import com.example.hipermarketsallingapplication.data.session.SessionManager
+import com.example.hipermarketsallingapplication.utils.JsonHelper
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -92,14 +96,42 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         _savedCarts.value = _savedCarts.value.filter { it.id != savedCart.id }
     }
 
-    fun loadProducts() {
+    fun loadProductsForShop(activeShop: String = "", userWorkShops: List<UserWorkItem> = emptyList()) {
         viewModelScope.launch {
-            if (_searchQuery.value.isBlank()) {
-                _products.value = emptyList()
+            val serverUrl = sessionManager.getServerLink()
+            if (!serverUrl.isNullOrBlank()) {
+                apiFetcher.fetchData(serverUrl, "products")
+            }
+            val shopList = if (activeShop.isNotBlank() && activeShop != "All Working Shops" && activeShop != "All Shops" && activeShop != "None") {
+                listOf(activeShop)
+            } else if (userWorkShops.isNotEmpty()) {
+                userWorkShops.map { it.name }
             } else {
-                _products.value = productRepo.searchProducts(_searchQuery.value)
+                emptyList()
+            }
+
+            val rawProducts = if (shopList.isNotEmpty()) {
+                productRepo.getProductsByShopItems(shopList)
+            } else {
+                productRepo.getAllProducts()
+            }
+
+            if (_searchQuery.value.isBlank()) {
+                _products.value = rawProducts
+            } else {
+                val q = _searchQuery.value.trim()
+                _products.value = rawProducts.filter { p ->
+                    p.name.contains(q, ignoreCase = true) ||
+                    p.code.contains(q, ignoreCase = true) ||
+                    p.barcode.contains(q, ignoreCase = true) ||
+                    p.type.contains(q, ignoreCase = true)
+                }
             }
         }
+    }
+
+    fun loadProducts() {
+        loadProductsForShop()
     }
 
     fun loadCustomers() {
@@ -110,13 +142,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     fun searchProducts(query: String) {
         _searchQuery.value = query
-        viewModelScope.launch {
-            if (query.isBlank()) {
-                _products.value = emptyList()
-            } else {
-                _products.value = productRepo.searchProducts(query)
-            }
-        }
+        loadProductsForShop()
     }
 
     fun scanBarcode(barcode: String): Boolean {
@@ -148,6 +174,37 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         val index = current.indexOfFirst { it.product.id == item.product.id }
         if (index >= 0) {
             current[index] = current[index].copy(qty = newQty)
+            _cart.value = current
+        }
+    }
+
+    fun updateCartItem(updatedItem: CartItem) {
+        val current = _cart.value.toMutableList()
+        val index = current.indexOfFirst { it.product.id == updatedItem.product.id }
+        if (index >= 0) {
+            current[index] = updatedItem
+            _cart.value = current
+        }
+    }
+
+    fun splitCartItem(item: CartItem) {
+        if (item.qty <= 1) return
+        val current = _cart.value.toMutableList()
+        val index = current.indexOfFirst { it.product.id == item.product.id }
+        if (index >= 0) {
+            current.removeAt(index)
+            val count = item.qty.toInt()
+            for (i in 0 until count) {
+                val uniqueId = item.product.id * 1000 + i + (10..99).random()
+                val singleProduct = item.product.copy(id = uniqueId)
+                current.add(
+                    index + i,
+                    item.copy(
+                        product = singleProduct,
+                        qty = 1.0
+                    )
+                )
+            }
             _cart.value = current
         }
     }
@@ -260,12 +317,86 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun saveProduct(p: Product) {
+    private fun getUserWorkingShops(): List<UserWorkItem> {
+        val userRepo = UserRepository(getApplication())
+        val sessionManager = SessionManager(getApplication())
+        val savedName = sessionManager.getSavedUserName()
+        val list = mutableListOf<UserWorkItem>()
+
+        if (!savedName.isNullOrBlank()) {
+            val user = userRepo.getUserByUsername(savedName)
+            val shopJsonStr = if (!user?.userWorkShop.isNullOrBlank() && user?.userWorkShop != "[]") {
+                user?.userWorkShop
+            } else {
+                user?.userShop
+            }
+            val parsed = JsonHelper.loads(shopJsonStr)
+            if (parsed is List<*>) {
+                for (element in parsed) {
+                    if (element is List<*>) {
+                        val name = element.getOrNull(1)?.toString() ?: element.getOrNull(0)?.toString() ?: ""
+                        if (name.isNotBlank() && list.none { it.name == name }) {
+                            list.add(UserWorkItem("1", name, "MainBrand", 10))
+                        }
+                    } else if (element != null) {
+                        val name = element.toString().trim()
+                        if (name.isNotBlank() && list.none { it.name == name }) {
+                            list.add(UserWorkItem("1", name, "MainBrand", 10))
+                        }
+                    }
+                }
+            }
+        }
+
+        if (list.isEmpty()) {
+            val dbShops = userRepo.getAllShops()
+            dbShops.forEach { s ->
+                val name = s.getOrNull(1)?.toString() ?: ""
+                if (name.isNotBlank() && list.none { it.name == name }) {
+                    list.add(UserWorkItem("1", name, "MainBrand", 10))
+                }
+            }
+        }
+        return list
+    }
+
+    fun saveProduct(p: Product, workingShops: List<UserWorkItem> = emptyList()) {
         viewModelScope.launch {
+            val userRepo = UserRepository(getApplication())
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val currentDate = sdf.format(Date())
+
+            val resolvedShops = if (workingShops.isNotEmpty()) workingShops else getUserWorkingShops()
+
+            val isAllShopsMode = p.atShop.isBlank() || 
+                p.atShop.equals("All Shops", ignoreCase = true) || 
+                p.atShop.equals("All Working Shops", ignoreCase = true) || 
+                p.atShop.equals("None", ignoreCase = true)
+
             if (p.id == 0L) {
-                repo.insertProduct(p)
+                if (isAllShopsMode) {
+                    if (resolvedShops.isNotEmpty()) {
+                        resolvedShops.forEach { shopItem ->
+                            val newId = repo.insertProduct(p.copy(atShop = shopItem.name))
+                            userRepo.appendProductToShopItems(shopItem.name, newId.toString(), currentDate)
+                        }
+                    } else {
+                        val newId = repo.insertProduct(p.copy(atShop = "Main Shop"))
+                        userRepo.appendProductToShopItems("Main Shop", newId.toString(), currentDate)
+                    }
+                } else {
+                    val newId = repo.insertProduct(p)
+                    userRepo.appendProductToShopItems(p.atShop, newId.toString(), currentDate)
+                }
             } else {
                 repo.updateProduct(p)
+                if (!isAllShopsMode) {
+                    userRepo.appendProductToShopItems(p.atShop, p.id.toString(), currentDate)
+                } else {
+                    resolvedShops.forEach { shopItem ->
+                        userRepo.appendProductToShopItems(shopItem.name, p.id.toString(), currentDate)
+                    }
+                }
             }
             loadProducts()
         }
@@ -316,6 +447,43 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
+    val userWorkingShops: StateFlow<List<UserWorkItem>> = currentUser.map { user ->
+        val list = mutableListOf<UserWorkItem>()
+        val shopJsonStr = if (!user?.userWorkShop.isNullOrBlank() && user?.userWorkShop != "[]") {
+            user?.userWorkShop
+        } else {
+            user?.userShop
+        }
+        val parsed = JsonHelper.loads(shopJsonStr)
+        if (parsed is List<*>) {
+            for (element in parsed) {
+                if (element is List<*>) {
+                    if (element.size >= 4) {
+                        val id = element[0]?.toString() ?: "1"
+                        val name = element[1]?.toString() ?: ""
+                        val brand = element[2]?.toString() ?: "MainBrand"
+                        val level = element[3]?.toString()?.toIntOrNull() ?: 10
+                        if (name.isNotBlank() && list.none { it.name == name }) {
+                            list.add(UserWorkItem(id, name, brand, level))
+                        }
+                    } else if (element.size >= 2) {
+                        val id = element[0]?.toString() ?: "1"
+                        val name = element[1]?.toString() ?: ""
+                        if (name.isNotBlank() && list.none { it.name == name }) {
+                            list.add(UserWorkItem(id, name, "MainBrand", -1))
+                        }
+                    }
+                } else if (element != null) {
+                    val name = element.toString().trim()
+                    if (name.isNotBlank() && list.none { it.name == name }) {
+                        list.add(UserWorkItem("1", name, "MainBrand", -1))
+                    }
+                }
+            }
+        }
+        list
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
@@ -399,6 +567,11 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             loadUsers()
         }
     }
+    fun updateShopWorkers(shopName: String, shopBrandName: String, shopWorkersJson: String) {
+        viewModelScope.launch {
+            userRepo.updateShopWorkers(shopName, shopBrandName, shopWorkersJson)
+        }
+    }
 
     fun updateUserShop(username: String, shops: List<String>) {
         viewModelScope.launch {
@@ -418,6 +591,12 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             if (_currentUser.value?.userName == username) {
                 _currentUser.value = _currentUser.value?.copy(userWorkShop = workShopJson)
             }
+        }
+    }
+
+    fun updateShop(shopName: String, shopBrandName: String, ownerId: String, shopType: String, shopEmail: String, shopCountry: String, shopContact: String, shopworkers: String) {
+        viewModelScope.launch {
+            userRepo.updateShop(shopName, shopBrandName, ownerId, shopType, shopEmail, shopCountry, shopContact, shopworkers)
         }
     }
 

@@ -21,6 +21,7 @@ fun ShopManagementPanel(
     userShopData: String?,
     onCreateShop: () -> Unit,
     onRequestShop: () -> Unit,
+    onBack: () -> Unit = {},
     errorMessage: String? = null
 ) {
     val loadedShopNames = remember(userShopData) {
@@ -45,7 +46,7 @@ fun ShopManagementPanel(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            text = "Step 3: Select User Shop (User Workplace)" + userShopData,
+            text = "Step 3: Select User Shop (User Workplace)",
             color = DarkBlueAccent,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp
@@ -131,6 +132,11 @@ fun ShopManagementPanel(
             ) {
                 Text("Request Shop", fontSize = 12.sp, color = DarkBlueAccent)
             }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+        TextButton(onClick = onBack) {
+            Text("← Back to User Selection", color = DarkBlueAccent)
         }
     }
 }

@@ -74,7 +74,7 @@ fun CreateShopPanel(
             value = shopName,
             onValueChange = { shopName = it },
             label = { Text("Shop Name", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -82,7 +82,7 @@ fun CreateShopPanel(
             value = shopBrand,
             onValueChange = { shopBrand = it },
             label = { Text("Shop Brand", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -99,17 +99,17 @@ fun CreateShopPanel(
                 readOnly = true,
                 label = { Text("Country", color = TextMuted) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryExpanded) },
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
             )
             ExposedDropdownMenu(
                 expanded = countryExpanded,
                 onDismissRequest = { countryExpanded = false },
-                modifier = Modifier.background(CardBackground)
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
             ) {
                 countries.forEach { country ->
                     DropdownMenuItem(
-                        text = { Text(country, color = TextLight) },
+                        text = { Text(country, color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             selectedCountry = country
                             currentCities = LocationData.getCities(country)
@@ -117,7 +117,7 @@ fun CreateShopPanel(
                             shopCurrency = LocationData.getCurrency(country)
                             countryExpanded = false
                         },
-                        colors = MenuDefaults.itemColors(textColor = TextLight)
+                        colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.onSurface)
                     )
                 }
             }
@@ -135,22 +135,22 @@ fun CreateShopPanel(
                 readOnly = true,
                 label = { Text("City / Location", color = TextMuted) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityExpanded) },
-                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
             )
             ExposedDropdownMenu(
                 expanded = cityExpanded,
                 onDismissRequest = { cityExpanded = false },
-                modifier = Modifier.background(CardBackground)
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
             ) {
                 currentCities.forEach { city ->
                     DropdownMenuItem(
-                        text = { Text(city, color = TextLight) },
+                        text = { Text(city, color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             selectedCity = city
                             cityExpanded = false
                         },
-                        colors = MenuDefaults.itemColors(textColor = TextLight)
+                        colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.onSurface)
                     )
                 }
             }
@@ -160,7 +160,7 @@ fun CreateShopPanel(
             value = shopPhone,
             onValueChange = { shopPhone = it },
             label = { Text("Phone Number", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -168,7 +168,7 @@ fun CreateShopPanel(
             value = shopEmail,
             onValueChange = { shopEmail = it },
             label = { Text("Email", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -176,7 +176,7 @@ fun CreateShopPanel(
             value = shopCurrency,
             onValueChange = { shopCurrency = it },
             label = { Text("Currency (Auto-set from Country)", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -184,7 +184,7 @@ fun CreateShopPanel(
             value = shopCategory,
             onValueChange = { shopCategory = it },
             label = { Text("Shop Category / Department", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -192,7 +192,7 @@ fun CreateShopPanel(
             value = operatingHours,
             onValueChange = { operatingHours = it },
             label = { Text("Operating Hours", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )

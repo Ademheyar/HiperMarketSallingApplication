@@ -1,5 +1,6 @@
 package com.example.hipermarketsallingapplication.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -92,11 +93,11 @@ fun HomeScreen(
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = DarkBlueAccent,
-                        unfocusedBorderColor = CardBackground,
-                        focusedTextColor = TextLight,
-                        unfocusedTextColor = TextLight,
-                        focusedContainerColor = CardBackground,
-                        unfocusedContainerColor = CardBackground
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
                     ),
                     singleLine = true
                 )
@@ -184,11 +185,11 @@ fun InstagramProductPostCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onInspect() },
-        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Instagram Header: Avatar, Store Name, Category & More Options
+            // Instagram Header: Shop Name, Brand Name & Follow Shop Button before '...' Menu
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -196,7 +197,7 @@ fun InstagramProductPostCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Box(
                         modifier = Modifier
                             .size(38.dp)
@@ -204,7 +205,7 @@ fun InstagramProductPostCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = product.name.take(1).uppercase(),
+                            text = product.atShop.take(1).uppercase(),
                             color = TextLight,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
@@ -213,21 +214,46 @@ fun InstagramProductPostCard(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = product.name,
-                            color = TextLight,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            text = product.type, // Brand
+                            color = TextMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "@hipermarket_store • ${product.type}",
+                            text = product.atShop, // Shop Name
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Verified Store",
                             color = TextMuted,
-                            fontSize = 11.sp
+                            fontSize = 10.sp
                         )
                     }
                 }
 
-                IconButton(onClick = { }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = TextMuted)
+                // Right side: Follow Shop button before '...' menu button
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    var isFollowing by remember { mutableStateOf(false) }
+
+                    OutlinedButton(
+                        onClick = { isFollowing = !isFollowing },
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isFollowing) DarkBlueAccent else Color.Transparent,
+                            contentColor = if (isFollowing) TextLight else DarkBlueAccent
+                        ),
+                        border = BorderStroke(1.dp, DarkBlueAccent)
+                    ) {
+                        Text(if (isFollowing) "Following" else "Follow", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    IconButton(onClick = { }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More", tint = TextMuted)
+                    }
                 }
             }
 
@@ -236,7 +262,7 @@ fun InstagramProductPostCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(240.dp)
-                    .background(SurfaceDark),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -249,7 +275,7 @@ fun InstagramProductPostCard(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = product.name,
-                        color = TextLight,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
@@ -379,11 +405,11 @@ fun InstagramProductPostCard(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(SurfaceDark, RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
                                 .padding(8.dp)
                         ) {
                             Text("staff_user: ", color = DarkBlueAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text(comment, color = TextLight, fontSize = 12.sp)
+                            Text(comment, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                         }
                     }
 
@@ -403,10 +429,11 @@ fun InstagramProductPostCard(
                                 .weight(1f)
                                 .height(44.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = TextLight,
-                                unfocusedTextColor = TextLight,
-                                focusedContainerColor = SurfaceDark,
-                                unfocusedContainerColor = SurfaceDark
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
                             ),
                             singleLine = true
                         )
@@ -445,44 +472,70 @@ fun ProductDetailModal(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = DarkBlueAccent)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Product Full Info & Specifications", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = DarkBlueAccent)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Complete Product Specifications", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+                }
             }
         },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 480.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Full Info Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(product.name, color = TextLight, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Category / Type: ${product.type}", color = TextMuted, fontSize = 12.sp)
-                        Text("Product Code: ${product.code} | Barcode: ${product.barcode}", color = TextMuted, fontSize = 12.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Price: $${String.format(Locale.getDefault(), "%.2f", product.price)}", color = EnergyRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("Available Stock: ${product.quantity} units", color = if (product.quantity < 10) EnergyRed else SuccessGreen, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(product.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Divider(color = DarkBlueDarker, thickness = 0.5.dp)
+                        Text("🏷️ Brand / Type: ${product.type}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                        Text("🏬 Store / Shop: ${product.atShop}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                        Text("📦 Product Code: ${product.code}", color = TextMuted, fontSize = 12.sp)
+                        Text("📊 Barcode: ${product.barcode}", color = TextMuted, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Price: $${String.format(Locale.getDefault(), "%.2f", product.price)}", color = EnergyRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Cost: $${String.format(Locale.getDefault(), "%.2f", product.cost)}", color = TextMuted, fontSize = 13.sp)
+                        }
+                        Text("Tax Rate: ${product.tax}% | Include Tax: ${product.includeTax}", color = TextMuted, fontSize = 12.sp)
+                        Text("Stock Available: ${product.quantity} units", color = if (product.quantity < 10) EnergyRed else SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        if (product.description.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Description:", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                            Text(product.description, color = TextMuted, fontSize = 12.sp)
+                        }
+                        if (product.moreInfo.isNotBlank()) {
+                            Text("More Info: ${product.moreInfo}", color = TextMuted, fontSize = 12.sp)
+                        }
                     }
                 }
 
-                Text("Select Size:", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Select Size:", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     sizes.forEach { size ->
                         val isSelected = selectedSize == size
                         Button(
                             onClick = { selectedSize = size },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) DarkBlueAccent else SurfaceDark,
-                                contentColor = TextLight
+                                containerColor = if (isSelected) DarkBlueAccent else MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = if (isSelected) TextLight else MaterialTheme.colorScheme.onSurface
                             ),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f).height(38.dp),
@@ -493,15 +546,15 @@ fun ProductDetailModal(
                     }
                 }
 
-                Text("Select Color:", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Select Color:", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     colors.forEach { color ->
                         val isSelected = selectedColor == color
                         Button(
                             onClick = { selectedColor = color },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) DarkBlueAccent else SurfaceDark,
-                                contentColor = TextLight
+                                containerColor = if (isSelected) DarkBlueAccent else MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = if (isSelected) TextLight else MaterialTheme.colorScheme.onSurface
                             ),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f).height(38.dp),
@@ -512,7 +565,7 @@ fun ProductDetailModal(
                     }
                 }
 
-                Text("Quantity:", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Quantity:", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -520,23 +573,23 @@ fun ProductDetailModal(
                 ) {
                     IconButton(
                         onClick = { if (quantity > 1) quantity-- },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = SurfaceDark)
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = TextLight)
+                        Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = MaterialTheme.colorScheme.onSurface)
                     }
 
                     Text(
                         text = quantity.toString(),
-                        color = TextLight,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
                     )
 
                     IconButton(
                         onClick = { if (quantity < product.quantity) quantity++ },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = SurfaceDark)
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Increase", tint = TextLight)
+                        Icon(Icons.Default.Add, contentDescription = "Increase", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -548,16 +601,12 @@ fun ProductDetailModal(
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Add $quantity To Cart ($selectedSize, $selectedColor)", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                Text("Cancel", color = TextMuted)
+                Text("Add $quantity To Cart ($selectedSize, $selectedColor)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
     )

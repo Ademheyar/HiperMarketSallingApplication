@@ -21,22 +21,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.hipermarketsallingapplication.data.model.CartItem
-import com.example.hipermarketsallingapplication.data.model.Customer
-import com.example.hipermarketsallingapplication.data.model.Product
-import com.example.hipermarketsallingapplication.data.model.SalesDoc
-import com.example.hipermarketsallingapplication.data.model.EndOfDaySummary
-import com.example.hipermarketsallingapplication.data.model.SavedCart
+import com.example.hipermarketsallingapplication.data.model.*
 import com.example.hipermarketsallingapplication.ui.theme.*
 import com.example.hipermarketsallingapplication.ui.viewmodel.DocViewModel
 import com.example.hipermarketsallingapplication.ui.viewmodel.PosViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+import com.example.hipermarketsallingapplication.ui.viewmodel.UserViewModel
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 
 data class SplitPaymentRow(
     val type: String,
@@ -49,6 +54,7 @@ data class SplitPaymentRow(
 @Composable
 fun PosScreen(
     viewModel: PosViewModel,
+    userViewModel: UserViewModel,
     docViewModel: DocViewModel,
     activeUser: String = "admin"
 ) {
@@ -61,6 +67,17 @@ fun PosScreen(
     val docs by docViewModel.docs.collectAsState()
     val summary by docViewModel.summary.collectAsState()
     val savedCarts by viewModel.savedCarts.collectAsState()
+
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val userWorkShops by userViewModel.userWorkingShops.collectAsState()
+    val activeShop = currentUser?.userShop ?: ""
+
+    // Automatically load products for the active logged-in shop!
+    LaunchedEffect(activeShop, userWorkShops) {
+        viewModel.loadProductsForShop(activeShop, userWorkShops)
+    }
+
+    var selectedProductForVariant by remember { mutableStateOf<Product?>(null) }
 
     var showPaymentDialog by remember { mutableStateOf(false) }
     var showQuickPayModal by remember { mutableStateOf(false) }
@@ -79,92 +96,26 @@ fun PosScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(8.dp)
     ) {
-        // Top Section 1: Fixed Search Bar on Top with Inline Search Results Panel Listed Down Below
-        Column(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = {
-                    viewModel.searchProducts(it)
-                    barcodeInput = it
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                label = { Text("Scan Barcode or Search Item", color = TextMuted, fontSize = 12.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = DarkBlueAccent) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.searchProducts("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextMuted)
-                        }
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = DarkBlueAccent,
-                    unfocusedBorderColor = CardBackground,
-                    focusedTextColor = TextLight,
-                    unfocusedTextColor = TextLight,
-                    focusedContainerColor = CardBackground,
-                    unfocusedContainerColor = CardBackground
-                ),
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium
-            )
-
-            // Inline Search Results Panel listed directly down below search bar
-            if (searchQuery.isNotBlank()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 240.dp)
-                        .padding(top = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardBackground),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Search Results for \"$searchQuery\" (${products.size})",
-                                color = TextLight,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                            IconButton(onClick = { viewModel.searchProducts("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close Results", tint = TextMuted, modifier = Modifier.size(18.dp))
-                            }
-                        }
-
-                        HorizontalDivider(color = DarkBlueDarker, modifier = Modifier.padding(vertical = 4.dp))
-
-                        if (products.isEmpty()) {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                Text("No products match \"$searchQuery\"", color = TextMuted, fontSize = 12.sp)
-                            }
-                        } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = 130.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                items(products) { product ->
-                                    ProductTile(
-                                        product = product,
-                                        onClick = {
-                                            viewModel.addToCart(product)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        // Top Section 1: Reusable PosSearchEntry from SearchEntry.kt (searchbox.py)
+        PosSearchEntry(
+            searchQuery = searchQuery,
+            onSearchQueryChange = {
+                viewModel.searchProducts(it)
+                barcodeInput = it
+            },
+            products = products,
+            activeShop = activeShop,
+            onAddToCart = { selectedProd, addQty, selectedColor, selectedSize, selectedShop ->
+                val variantProd = selectedProd.copy(
+                    atShop = selectedShop,
+                    code = if (selectedColor != "Default" || selectedSize != "M") "${selectedProd.code}-$selectedColor-$selectedSize" else selectedProd.code
+                )
+                viewModel.addToCart(variantProd, addQty.toInt())
+            },
+            onClearSearch = {
+                viewModel.searchProducts("")
             }
-        }
+        )
 
         Spacer(modifier = Modifier.height(6.dp))
 
@@ -264,7 +215,7 @@ fun PosScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            colors = CardDefaults.cardColors(containerColor = CardBackground),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(
@@ -281,7 +232,7 @@ fun PosScreen(
                         text = "Current Sale Cart (${cart.size} items)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextLight
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (cart.isNotEmpty()) {
                         TextButton(onClick = { viewModel.clearCart() }) {
@@ -290,7 +241,7 @@ fun PosScreen(
                     }
                 }
 
-                HorizontalDivider(color = DarkBlueDarker, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                 if (cart.isEmpty()) {
                     Box(
@@ -321,20 +272,21 @@ fun PosScreen(
                         items(cart) { item ->
                             CartItemRow(
                                 item = item,
-                                onQtyChange = { newQty -> viewModel.updateCartQty(item, newQty) },
+                                onUpdateItem = { updatedItem -> viewModel.updateCartItem(updatedItem) },
+                                onSplitItem = { itemToSplit -> viewModel.splitCartItem(itemToSplit) },
                                 onRemove = { viewModel.removeFromCart(item) }
                             )
                         }
                     }
                 }
 
-                HorizontalDivider(color = DarkBlueDarker, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 // Totals breakdown
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(DarkBlueDarker, RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                         .padding(10.dp)
                 ) {
                     Row(
@@ -342,21 +294,21 @@ fun PosScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Subtotal:", color = TextMuted, fontSize = 13.sp)
-                        Text("$${String.format("%.2f", viewModel.cartSubtotal)}", color = TextLight, fontSize = 13.sp)
+                        Text("$${String.format("%.2f", viewModel.cartSubtotal)}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Tax:", color = TextMuted, fontSize = 13.sp)
-                        Text("$${String.format("%.2f", viewModel.cartTax)}", color = TextLight, fontSize = 13.sp)
+                        Text("$${String.format("%.2f", viewModel.cartTax)}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                     }
-                    HorizontalDivider(color = CardBackground, modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Total:", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Total:", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(
                             "$${String.format("%.2f", viewModel.cartTotal)}",
                             color = EnergyRed,
@@ -449,19 +401,188 @@ fun PosScreen(
         )
     }
 
-    // Custom None Item Modal (F2)
+    // Custom None Item Modal (F2) matching GetVALUE.py
     if (showCustomItemModal) {
-        AlertDialog(
-            onDismissRequest = { showCustomItemModal = false },
-            containerColor = CardBackground,
-            title = { Text("Add Non-Catalog Custom Item (F2)", color = TextLight, fontWeight = FontWeight.Bold) },
-            text = { Text("Enter custom item details to add directly to sale.", color = TextMuted) },
-            confirmButton = {
-                Button(onClick = { showCustomItemModal = false }) { Text("Add Custom Item") }
+        GetValueDialog(
+            titles = listOf("Enter Custom Item Price ($)", "Enter Item Quantity"),
+            initialValue = "10.00",
+            onValueConfirmed = { values ->
+                val customPrice = values.getOrNull(0) ?: 10.0
+                val customQty = values.getOrNull(1) ?: 1.0
+                val customProduct = Product(
+                    id = System.currentTimeMillis(),
+                    name = "Custom Unregistered Item (F2)",
+                    code = "NONE-${(100..999).random()}",
+                    barcode = "NONE-${(1000..9999).random()}",
+                    type = "Custom",
+                    price = customPrice,
+                    quantity = customQty.toInt()
+                )
+                viewModel.addToCart(customProduct, customQty.toInt())
+                showCustomItemModal = false
+            },
+            onDismiss = { showCustomItemModal = false }
+        )
+    }
+
+    // POS Item & Variant Selector Modal (searchbox.py / ItemSelectorWidget)
+    selectedProductForVariant?.let { prod ->
+        PosItemSelectorDialog(
+            product = prod,
+            activeShop = activeShop,
+            onDismiss = { selectedProductForVariant = null },
+            onAddToCart = { selectedProd, addQty, selectedColor, selectedSize, selectedShop ->
+                val variantProd = selectedProd.copy(
+                    atShop = selectedShop,
+                    code = if (selectedColor != "Default" || selectedSize != "M") "${selectedProd.code}-$selectedColor-$selectedSize" else selectedProd.code
+                )
+                viewModel.addToCart(variantProd, addQty.toInt())
+                selectedProductForVariant = null
             }
         )
     }
 }
+
+@Composable
+fun PosItemSelectorDialog(
+    product: Product,
+    activeShop: String,
+    onDismiss: () -> Unit,
+    onAddToCart: (Product, Double, String, String, String) -> Unit
+) {
+    val moreInfoParser = remember(product.moreInfo, activeShop, product.code) {
+        MoreInfoParser(
+            moreInfoJson = product.moreInfo,
+            fallbackShop = if (product.atShop.isNotBlank() && product.atShop != "All Shops") product.atShop else activeShop.ifBlank { "Main Shop" },
+            fallbackCode = product.code.ifBlank { "P101" },
+            fallbackColor = "Default",
+            fallbackSize = "M"
+        )
+    }
+
+    val shopOptions = remember(moreInfoParser) { moreInfoParser.getShops() }
+    var selectedShop by remember(product, activeShop) { mutableStateOf(if (shopOptions.size == 1) shopOptions.first() else if (product.atShop.isNotBlank() && product.atShop != "All Shops") product.atShop else activeShop.ifBlank { shopOptions.first() }) }
+
+    val codeOptions = remember(moreInfoParser, selectedShop) { moreInfoParser.getCodes(selectedShop) }
+    var selectedCode by remember(product, selectedShop) { mutableStateOf(if (codeOptions.size == 1) codeOptions.first() else product.code.ifBlank { codeOptions.first() }) }
+
+    val colorOptions = remember(moreInfoParser, selectedShop, selectedCode) { moreInfoParser.getColors(selectedShop, selectedCode) }
+    var selectedColor by remember(product, selectedShop, selectedCode) { mutableStateOf(if (colorOptions.size == 1) colorOptions.first() else colorOptions.first()) }
+
+    val sizeOptions = remember(moreInfoParser, selectedShop, selectedCode, selectedColor) { moreInfoParser.getSizes(selectedShop, selectedCode, selectedColor) }
+    var selectedSize by remember(product, selectedShop, selectedCode, selectedColor) { mutableStateOf(if (sizeOptions.size == 1) sizeOptions.first() else sizeOptions.first()) }
+
+    var qtyInput by remember { mutableStateOf("1.0") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBackground,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ShoppingBag, contentDescription = null, tint = DarkBlueAccent, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(product.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("Code: $selectedCode | Barcode: ${product.barcode}", fontSize = 11.sp, color = TextMuted)
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Stock Available: ${product.quantity} units", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SuccessGreen)
+                            Text("Category: ${product.type}", fontSize = 11.sp, color = TextMuted)
+                        }
+                        Text("$${String.format(Locale.getDefault(), "%.2f", product.price)}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = DarkBlueAccent)
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MoreInfoDropdown(
+                        label = "Shop",
+                        value = selectedShop,
+                        options = shopOptions,
+                        onOptionSelected = { selectedShop = it },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    MoreInfoDropdown(
+                        label = "Code",
+                        value = selectedCode,
+                        options = codeOptions,
+                        onOptionSelected = { selectedCode = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MoreInfoDropdown(
+                        label = "Color",
+                        value = selectedColor,
+                        options = colorOptions,
+                        onOptionSelected = { selectedColor = it },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    MoreInfoDropdown(
+                        label = "Size",
+                        value = selectedSize,
+                        options = sizeOptions,
+                        onOptionSelected = { selectedSize = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = qtyInput,
+                    onValueChange = { qtyInput = it },
+                    label = { Text("Add QTY", fontSize = 10.sp) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val addQty = qtyInput.toDoubleOrNull() ?: 1.0
+                    onAddToCart(product, addQty, selectedColor, selectedSize, selectedShop)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+            ) {
+                Icon(Icons.Default.AddShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Add Item To Cart")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextMuted)
+            }
+        }
+    )
+}
+
+
 
 @Composable
 fun QuickPayToolsModal(
@@ -479,7 +600,7 @@ fun QuickPayToolsModal(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -489,7 +610,7 @@ fun QuickPayToolsModal(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = SuccessGreen)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Quick Pay - Select Payment Tool", color = TextLight, fontWeight = FontWeight.Bold)
+                    Text("Quick Pay - Select Payment Tool", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
@@ -508,7 +629,7 @@ fun QuickPayToolsModal(
                     fontWeight = FontWeight.Bold
                 )
 
-                HorizontalDivider(color = DarkBlueDarker)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 Text("Choose Payment Tool:", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
@@ -519,7 +640,7 @@ fun QuickPayToolsModal(
                             .clickable {
                                 onPaySelected(name)
                             },
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(
@@ -532,7 +653,7 @@ fun QuickPayToolsModal(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(icon, contentDescription = name, tint = color, modifier = Modifier.size(24.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text(name, color = TextLight, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             }
                             Button(
                                 onClick = { onPaySelected(name) },
@@ -575,7 +696,7 @@ fun CustomerSelectionModal(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -585,7 +706,7 @@ fun CustomerSelectionModal(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.PersonSearch, contentDescription = null, tint = DarkBlueAccent)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Select Customer", color = TextLight, fontWeight = FontWeight.Bold)
+                    Text("Select Customer", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
@@ -606,7 +727,13 @@ fun CustomerSelectionModal(
                     label = { Text("Search Customer by Name, Phone...", fontSize = 11.sp, color = TextMuted) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = DarkBlueAccent) },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
                 )
 
                 Row(
@@ -627,7 +754,7 @@ fun CustomerSelectionModal(
                     }
                 }
 
-                HorizontalDivider(color = DarkBlueDarker, modifier = Modifier.padding(vertical = 2.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 2.dp))
 
                 // Walk-in Customer Option
                 Card(
@@ -638,7 +765,7 @@ fun CustomerSelectionModal(
                             onDismiss()
                         },
                     colors = CardDefaults.cardColors(
-                        containerColor = if (currentCustomer == "Walk-in Customer" || currentCustomer.isBlank()) DarkBlueAccent else SurfaceDark
+                        containerColor = if (currentCustomer == "Walk-in Customer" || currentCustomer.isBlank()) DarkBlueAccent else MaterialTheme.colorScheme.surfaceVariant
                     ),
                     shape = RoundedCornerShape(6.dp)
                 ) {
@@ -646,9 +773,9 @@ fun CustomerSelectionModal(
                         modifier = Modifier.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Store, contentDescription = null, tint = TextLight)
+                        Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Walk-in Customer (Default)", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Walk-in Customer (Default)", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
 
@@ -669,7 +796,7 @@ fun CustomerSelectionModal(
                                     onDismiss()
                                 },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) DarkBlueAccent else SurfaceDark
+                                containerColor = if (isSelected) DarkBlueAccent else MaterialTheme.colorScheme.surfaceVariant
                             ),
                             shape = RoundedCornerShape(6.dp)
                         ) {
@@ -681,7 +808,7 @@ fun CustomerSelectionModal(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text(c.name, color = TextLight, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(c.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                     Text("Phone: ${c.phone} • ${c.email}", color = TextMuted, fontSize = 11.sp)
                                 }
                                 Button(
@@ -717,33 +844,33 @@ fun CustomerSelectionModal(
 
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
-            containerColor = CardBackground,
-            title = { Text("Create New Customer Account", color = TextLight, fontWeight = FontWeight.Bold) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Create New Customer Account", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
                         label = { Text("Full Name", color = TextMuted) },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface)
                     )
                     OutlinedTextField(
                         value = newPhone,
                         onValueChange = { newPhone = it },
                         label = { Text("Phone Number", color = TextMuted) },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface)
                     )
                     OutlinedTextField(
                         value = newEmail,
                         onValueChange = { newEmail = it },
                         label = { Text("Email", color = TextMuted) },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface)
                     )
                     OutlinedTextField(
                         value = newAddress,
                         onValueChange = { newAddress = it },
                         label = { Text("Address / City", color = TextMuted) },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface)
                     )
                 }
             },
@@ -793,7 +920,7 @@ fun SplitPaymentModal(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -803,7 +930,7 @@ fun SplitPaymentModal(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Payment, contentDescription = null, tint = DarkBlueAccent)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Payment Split Form", color = TextLight, fontWeight = FontWeight.Bold)
+                    Text("Payment Split Form", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
@@ -820,7 +947,7 @@ fun SplitPaymentModal(
                 // Payment Add Form
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -859,7 +986,13 @@ fun SplitPaymentModal(
                                 label = { Text("Reference / Auth #", fontSize = 10.sp, color = TextMuted) },
                                 modifier = Modifier.weight(1f).height(46.dp),
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                )
                             )
                         }
 
@@ -873,7 +1006,13 @@ fun SplitPaymentModal(
                                 label = { Text("Amount ($)", fontSize = 10.sp, color = TextMuted) },
                                 modifier = Modifier.weight(1f).height(46.dp),
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                )
                             )
 
                             Button(
@@ -945,21 +1084,21 @@ fun SplitPaymentModal(
                 // Financial Summary Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = DarkBlueDarker),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Total Payable:", color = TextMuted, fontSize = 12.sp)
-                            Text("$${String.format("%.2f", totalAmount)}", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("$${String.format("%.2f", totalAmount)}", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Total Paid So Far:", color = TextMuted, fontSize = 12.sp)
                             Text("$${String.format("%.2f", totalPaid)}", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
-                        HorizontalDivider(color = CardBackground, modifier = Modifier.padding(vertical = 2.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 2.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(if (remainingBalance > 0) "Remaining Balance:" else "Change Due:", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(if (remainingBalance > 0) "Remaining Balance:" else "Change Due:", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Text(
                                 if (remainingBalance > 0) "$${String.format("%.2f", remainingBalance)}" else "$${String.format("%.2f", changeDue)}",
                                 color = if (remainingBalance > 0) EnergyRed else SuccessGreen,
@@ -1000,7 +1139,7 @@ fun EndDaySummaryModal(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1010,7 +1149,7 @@ fun EndDaySummaryModal(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Assessment, contentDescription = null, tint = EnergyRed)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("End of Day Sales & Summary", color = TextLight, fontWeight = FontWeight.Bold)
+                    Text("End of Day Sales & Summary", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
@@ -1028,18 +1167,18 @@ fun EndDaySummaryModal(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text("Daily Gross Revenue: $${String.format("%.2f", s.totalRevenue)}", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text("Transactions Count: ${s.totalSalesCount} receipts", color = TextLight, fontSize = 12.sp)
+                            Text("Transactions Count: ${s.totalSalesCount} receipts", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                             Text("Estimated Profit: $${String.format("%.2f", s.totalProfit)}", color = EnergyRed, fontSize = 12.sp)
                         }
                     }
                 }
 
-                HorizontalDivider(color = DarkBlueDarker, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
                 Text("Recent Sales Receipts", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -1050,7 +1189,7 @@ fun EndDaySummaryModal(
                     items(docs) { doc ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Row(
@@ -1059,7 +1198,7 @@ fun EndDaySummaryModal(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text(doc.docBarcode, color = TextLight, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text(doc.docBarcode, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     Text("Customer: ${doc.customerId} • ${doc.docCreatedDate}", color = TextMuted, fontSize = 10.sp)
                                 }
                                 Text("$${String.format("%.2f", doc.price)}", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -1084,142 +1223,11 @@ fun EndDaySummaryModal(
 fun PosCalculatorModal(
     onDismiss: () -> Unit
 ) {
-    var displayExpression by remember { mutableStateOf("0") }
-
-    fun appendChar(char: String) {
-        if (displayExpression == "0" && char != ".") {
-            displayExpression = char
-        } else {
-            displayExpression += char
-        }
-    }
-
-    fun calculateResult() {
-        try {
-            val sanitized = displayExpression.replace("×", "*").replace("÷", "/")
-            val result = evaluateSimpleExpression(sanitized)
-            displayExpression = String.format("%.2f", result).removeSuffix(".00")
-        } catch (e: Exception) {
-            displayExpression = "Error"
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = CardBackground,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Calculator (F1)", color = TextLight, fontWeight = FontWeight.Bold)
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Calculator Display
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = displayExpression,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        color = TextLight,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.End
-                    )
-                }
-
-                // Calculator Keypad
-                val keys = listOf(
-                    listOf("C", "÷", "×", "⌫"),
-                    listOf("7", "8", "9", "-"),
-                    listOf("4", "5", "6", "+"),
-                    listOf("1", "2", "3", "="),
-                    listOf("0", ".", "", "")
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    keys.forEach { row ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            row.forEach { key ->
-                                if (key.isNotEmpty()) {
-                                    Button(
-                                        onClick = {
-                                            when (key) {
-                                                "C" -> displayExpression = "0"
-                                                "⌫" -> {
-                                                    displayExpression = if (displayExpression.length > 1) displayExpression.dropLast(1) else "0"
-                                                }
-                                                "=" -> calculateResult()
-                                                else -> appendChar(key)
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(44.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = when (key) {
-                                                "=", "C" -> DarkBlueAccent
-                                                "+", "-", "×", "÷" -> DarkBlueSecondary
-                                                else -> SurfaceDark
-                                            }
-                                        ),
-                                        shape = RoundedCornerShape(6.dp)
-                                    ) {
-                                        Text(key, color = TextLight, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                    }
-                                } else {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = DarkBlueAccent)) {
-                Text("Close")
-            }
-        }
+    GetValueDialog(
+        titles = listOf("Calculator (F1)"),
+        initialValue = "0",
+        onDismiss = onDismiss
     )
-}
-
-fun evaluateSimpleExpression(expression: String): Double {
-    val tokens = expression.split(Regex("(?<=[+*-/])|(?=[+*-/])")).map { it.trim() }.filter { it.isNotEmpty() }
-    if (tokens.isEmpty()) return 0.0
-    var current = tokens[0].toDoubleOrNull() ?: 0.0
-    var i = 1
-    while (i < tokens.size - 1) {
-        val op = tokens[i]
-        val nextVal = tokens[i + 1].toDoubleOrNull() ?: 0.0
-        when (op) {
-            "+" -> current += nextVal
-            "-" -> current -= nextVal
-            "*" -> current *= nextVal
-            "/" -> if (nextVal != 0.0) current /= nextVal
-        }
-        i += 2
-    }
-    return current
 }
 
 @Composable
@@ -1232,14 +1240,14 @@ fun SavedSalesModal(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Activets (F6) - Hold Sales Charts", color = TextLight, fontWeight = FontWeight.Bold)
+                Text("Activets (F6) - Hold Sales Charts", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
                 }
@@ -1265,7 +1273,7 @@ fun SavedSalesModal(
                     Text("Hold Current Cart & Open New Chart", fontWeight = FontWeight.Bold)
                 }
 
-                HorizontalDivider(color = DarkBlueDarker, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                 Text("Saved Active Charts (${savedCarts.size})", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
 
@@ -1286,7 +1294,7 @@ fun SavedSalesModal(
                                         onSelectCart(sc)
                                         onDismiss()
                                     },
-                                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Row(
@@ -1297,7 +1305,7 @@ fun SavedSalesModal(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
-                                        Text(sc.name, color = TextLight, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(sc.name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         Text("Customer: ${sc.customer} • ${sc.items.size} items • ${sc.timestamp}", color = TextMuted, fontSize = 11.sp)
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1366,7 +1374,7 @@ fun ProductTile(
             .fillMaxWidth()
             .height(100.dp)
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(8.dp)
     ) {
         Column(
@@ -1378,7 +1386,7 @@ fun ProductTile(
             Column {
                 Text(
                     text = product.name,
-                    color = TextLight,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                     maxLines = 2,
@@ -1414,64 +1422,252 @@ fun ProductTile(
 @Composable
 fun CartItemRow(
     item: CartItem,
-    onQtyChange: (Double) -> Unit,
+    onUpdateItem: (CartItem) -> Unit,
+    onSplitItem: (CartItem) -> Unit = {},
     onRemove: () -> Unit
 ) {
-    Row(
+    val moreInfoParser = remember(item.product.moreInfo, item.product.atShop, item.product.code) {
+        MoreInfoParser(
+            moreInfoJson = item.product.moreInfo,
+            fallbackShop = item.product.atShop.ifBlank { "Main Shop" },
+            fallbackCode = item.product.code.ifBlank { "P101" },
+            fallbackColor = "Default",
+            fallbackSize = "M"
+        )
+    }
+
+    val shopOptions = remember(moreInfoParser) { moreInfoParser.getShops() }
+    var shopInput by remember(item) { mutableStateOf(if (shopOptions.size == 1) shopOptions.first() else item.product.atShop.ifBlank { shopOptions.first() }) }
+
+    val codeOptions = remember(moreInfoParser, shopInput) { moreInfoParser.getCodes(shopInput) }
+    var codeInput by remember(item, shopInput) { mutableStateOf(if (codeOptions.size == 1) codeOptions.first() else item.product.code.ifBlank { codeOptions.first() }) }
+
+    val colorOptions = remember(moreInfoParser, shopInput, codeInput) { moreInfoParser.getColors(shopInput, codeInput) }
+    var colorInput by remember(item, shopInput, codeInput) { mutableStateOf(if (colorOptions.size == 1) colorOptions.first() else colorOptions.first()) }
+
+    val sizeOptions = remember(moreInfoParser, shopInput, codeInput, colorInput) { moreInfoParser.getSizes(shopInput, codeInput, colorInput) }
+    var sizeInput by remember(item, shopInput, codeInput, colorInput) { mutableStateOf(if (sizeOptions.size == 1) sizeOptions.first() else sizeOptions.first()) }
+
+    var qtyInput by remember(item) { mutableStateOf(item.qty.toInt().toString()) }
+    var priceInput by remember(item) { mutableStateOf(String.format(Locale.getDefault(), "%.2f", item.price)) }
+    var totalPriceInput by remember(item) { mutableStateOf(String.format(Locale.getDefault(), "%.2f", item.subtotal)) }
+
+    // Auto-update price if moreInfo specifies custom price for variant
+    LaunchedEffect(shopInput, codeInput, colorInput, sizeInput) {
+        val details = moreInfoParser.getItemDetails(shopInput, codeInput, colorInput, sizeInput)
+        if (details?.price != null && details.price > 0 && details.price != item.price) {
+            priceInput = String.format(Locale.getDefault(), "%.2f", details.price)
+            totalPriceInput = String.format(Locale.getDefault(), "%.2f", details.price * item.qty)
+            onUpdateItem(item.copy(price = details.price))
+        }
+    }
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceDark, RoundedCornerShape(6.dp))
-            .padding(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(vertical = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+        shape = RoundedCornerShape(8.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.product.name,
-                color = TextLight,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "$${String.format("%.2f", item.price)} x ${item.qty.toInt()} = $${String.format("%.2f", item.subtotal)}",
-                color = TextMuted,
-                fontSize = 11.sp
-            )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            IconButton(
-                onClick = { onQtyChange(item.qty - 1) },
-                modifier = Modifier.size(24.dp)
+            // Header Line: Avatar Icon + Product Name + Barcode + Unit Price & Total Price Summary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = DarkBlueAccent)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.ShoppingBag,
+                        contentDescription = null,
+                        tint = DarkBlueAccent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.product.name,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Barcode: ${item.product.barcode} | Type: ${item.product.type}",
+                            fontSize = 10.sp,
+                            color = TextMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = "$${String.format(Locale.getDefault(), "%.2f", item.subtotal)}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = SuccessGreen,
+                    maxLines = 1
+                )
             }
 
-            Text(
-                text = "${item.qty.toInt()}",
-                color = TextLight,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
+            HorizontalDivider(color = DarkBlueDarker)
 
-            IconButton(
-                onClick = { onQtyChange(item.qty + 1) },
-                modifier = Modifier.size(24.dp)
+            // Controls Line 1: Editable QTY, Unit Price, Total Price, and Action Buttons ('-' and 'v' / '+')
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Increase", tint = DarkBlueAccent)
+                // Editable QTY
+                OutlinedTextField(
+                    value = qtyInput,
+                    onValueChange = { input ->
+                        qtyInput = input
+                        val newQty = input.toDoubleOrNull() ?: item.qty
+                        if (newQty > 0) {
+                            val newTotal = newQty * item.price
+                            totalPriceInput = String.format(Locale.getDefault(), "%.2f", newTotal)
+                            onUpdateItem(item.copy(qty = newQty))
+                        }
+                    },
+                    label = { Text("QTY", fontSize = 9.sp, color = TextMuted) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 56.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+                )
+
+                // Editable Unit Price
+                OutlinedTextField(
+                    value = priceInput,
+                    onValueChange = { input ->
+                        priceInput = input
+                        val newPrice = input.toDoubleOrNull() ?: item.price
+                        val newTotal = item.qty * newPrice
+                        totalPriceInput = String.format(Locale.getDefault(), "%.2f", newTotal)
+                        onUpdateItem(item.copy(price = newPrice))
+                    },
+                    label = { Text("Price ($)", fontSize = 9.sp, color = TextMuted) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1.2f).defaultMinSize(minHeight = 56.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+                )
+
+                // Editable Total Price
+                OutlinedTextField(
+                    value = totalPriceInput,
+                    onValueChange = { input ->
+                        totalPriceInput = input
+                        val newTotal = input.toDoubleOrNull() ?: item.subtotal
+                        if (item.qty > 0) {
+                            val newUnitPrice = newTotal / item.qty
+                            priceInput = String.format(Locale.getDefault(), "%.2f", newUnitPrice)
+                            onUpdateItem(item.copy(price = newUnitPrice))
+                        }
+                    },
+                    label = { Text("Total ($)", fontSize = 9.sp, color = TextMuted) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1.2f).defaultMinSize(minHeight = 56.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+                )
+
+                // Action Buttons matching Display.py (del_button '-' and list_button 'v' or '+')
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // '-' Button (Decrements qty or removes item)
+                    Button(
+                        onClick = {
+                            if (item.qty > 1) {
+                                onUpdateItem(item.copy(qty = item.qty - 1))
+                            } else {
+                                onRemove()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = EnergyRed),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Text("-", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+
+                    // 'v' or '+' Button (Display.py list_button)
+                    Button(
+                        onClick = {
+                            if (item.qty <= 1) {
+                                onUpdateItem(item.copy(qty = item.qty + 1))
+                            } else {
+                                onSplitItem(item)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkBlueAccent),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Text(
+                            text = if (item.qty <= 1) "+" else "v",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
 
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.size(24.dp)
+            // Controls Line 2: Dropdowns for Variants (Shop, Code, Color, Size)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "Remove", tint = EnergyRed)
+                MoreInfoDropdown(
+                    label = "Shop",
+                    value = shopInput,
+                    options = shopOptions,
+                    onOptionSelected = { shopInput = it },
+                    modifier = Modifier.weight(1f)
+                )
+
+                MoreInfoDropdown(
+                    label = "Code",
+                    value = codeInput,
+                    options = codeOptions,
+                    onOptionSelected = { codeInput = it },
+                    modifier = Modifier.weight(1f)
+                )
+
+                MoreInfoDropdown(
+                    label = "Color",
+                    value = colorInput,
+                    options = colorOptions,
+                    onOptionSelected = { colorInput = it },
+                    modifier = Modifier.weight(1f)
+                )
+
+                MoreInfoDropdown(
+                    label = "Size",
+                    value = sizeInput,
+                    options = sizeOptions,
+                    onOptionSelected = { sizeInput = it },
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
@@ -1485,9 +1681,9 @@ fun PaymentMethodModal(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
-            Text("Select Payment Method", color = TextLight, fontWeight = FontWeight.Bold)
+            Text("Select Payment Method", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
         },
         text = {
             Column(
@@ -1512,7 +1708,7 @@ fun PaymentMethodModal(
                         colors = ButtonDefaults.buttonColors(containerColor = DarkBlueSecondary),
                         shape = RoundedCornerShape(6.dp)
                     ) {
-                        Text(method, color = TextLight, fontWeight = FontWeight.SemiBold)
+                        Text(method, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -1534,25 +1730,25 @@ fun ReceiptPreviewModal(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Receipt, contentDescription = null, tint = SuccessGreen)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Sale Complete & Slip Printed", color = TextLight, fontWeight = FontWeight.Bold)
+                Text("Sale Complete & Slip Printed", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceDark, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("HIPERMARKET RECEIPT", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("HIPERMARKET RECEIPT", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text("Shop #1 - Main Terminal", color = TextMuted, fontSize = 12.sp)
-                HorizontalDivider(color = DarkBlueDarker, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
                 Text(receiptCode, color = DarkBlueAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(statusText, color = SuccessGreen, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, textAlign = TextAlign.Center)

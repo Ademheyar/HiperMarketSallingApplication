@@ -21,13 +21,14 @@ fun NewLoginPanel(
     errorMessage: String?,
     onForgot: () -> Unit,
     onCreateNewUser: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onContinue: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = "Step 2: Enter credentials for '$username'",
@@ -39,7 +40,13 @@ fun NewLoginPanel(
             value = username,
             onValueChange = onUsernameChange,
             label = { Text("Username", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            ),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -47,7 +54,13 @@ fun NewLoginPanel(
             value = password,
             onValueChange = onPasswordChange,
             label = { Text("Password", color = TextMuted) },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            ),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -69,8 +82,24 @@ fun NewLoginPanel(
             }
         }
 
-        TextButton(onClick = onBack) {
-            Text("← Back to user list", color = DarkBlueAccent)
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Row containing "← Back to user list" on the left and "Continue" button on the right
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = onBack) {
+                Text("← Back to user list", color = DarkBlueAccent, fontWeight = FontWeight.SemiBold)
+            }
+
+            Button(
+                onClick = onContinue,
+                colors = ButtonDefaults.buttonColors(containerColor = DarkBlueAccent)
+            ) {
+                Text("Continue", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

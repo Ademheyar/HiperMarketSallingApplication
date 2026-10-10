@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.hipermarketsallingapplication.data.api.ApiClient
 import com.example.hipermarketsallingapplication.data.model.User
+import com.example.hipermarketsallingapplication.data.model.UserWorkItem
 import com.example.hipermarketsallingapplication.data.repository.UserRepository
 import com.example.hipermarketsallingapplication.ui.shop.CreateShopPanel
 import com.example.hipermarketsallingapplication.ui.shop.RequestShopPanel
@@ -39,53 +40,54 @@ fun SecurityLoginModal(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var step by remember { mutableStateOf("SELECT_USER") } // "SELECT_USER", "NEW_LOGIN", "SHOP_MANAGEMENT", "CREATE_SHOP", "REQUEST_SHOP", "SUCCESS_PANEL", "FORGET_PASSWORD", "CREATE_USER"
+    var step by remember {
+        mutableStateOf(if (isLoggedIn && currentUser != null) "SHOP_MANAGEMENT" else "SELECT_USER")
+    }
     var selectedUsername by remember { mutableStateOf("admin") }
     var passwordInput by remember { mutableStateOf("") }
     var serverLinkInput by remember { mutableStateOf(initialServerLink) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var urlCheckStatus by remember { mutableStateOf<String?>(null) }
 
-    var previousUsers by remember { mutableStateOf(listOf("admin", "cashier_1", "manager")) }
+    var previousUsers by remember { mutableStateOf(emptyList<String>()) }
 
     LaunchedEffect(Unit) {
-        try {
-            val file = File(context.filesDir, "prevlog.text")
-            if (file.exists()) {
-                val lines = file.readLines()
-                    .map { it.trim() }
-                    .filter { it.isNotBlank() }
-                    .mapNotNull { line ->
-                        val parts = line.split("|").map { it.trim() }
-                        if (parts.size >= 2) parts[1] else null
+        if (isLoggedIn && currentUser != null) {
+            step = "SHOP_MANAGEMENT"
+        } else {
+            try {
+                val file = File(context.filesDir, "prevlog.text")
+                if (file.exists()) {
+                    val lines = file.readLines()
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .mapNotNull { line ->
+                            val parts = line.split("|").map { it.trim() }
+                            if (parts.size >= 2) parts[1] else null
+                        }
+                    if (lines.isNotEmpty()) {
+                        previousUsers = lines.distinct()
                     }
-                if (lines.isNotEmpty()) {
-                    previousUsers = lines.distinct()
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+            if (previousUsers.isEmpty()) {
+                selectedUsername = ""
+                passwordInput = ""
+                step = "NEW_LOGIN"
+            }
         }
     }
 
     val initialShopItems = remember(currentUser) {
-        val list = mutableListOf<ShopWorkItem>()
-        try {
-            val dbShops = UserRepository(context).getAllShops()
-            for (shop in dbShops) {
-                val id = shop.getOrNull(0)?.toString() ?: "1"
-                val name = shop.getOrNull(1)?.toString() ?: ""
-                val brand = shop.getOrNull(2)?.toString() ?: "MainBrand"
-                val level = shop.getOrNull(3)?.toString()?.toIntOrNull() ?: 10
-                if (name.isNotBlank() && list.none { it.name == name }) {
-                    list.add(ShopWorkItem(id, name, brand, level))
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        val list = mutableListOf<UserWorkItem>()
+        val shopJsonStr = if (!currentUser?.userWorkShop.isNullOrBlank() && currentUser?.userWorkShop != "[]") {
+            currentUser?.userWorkShop
+        } else {
+            currentUser?.userShop
         }
-
-        val parsed = JsonHelper.loads(currentUser?.userWorkShop ?: currentUser?.userShop)
+        val parsed = JsonHelper.loads(shopJsonStr)
         if (parsed is List<*>) {
             for (element in parsed) {
                 if (element is List<*>) {
@@ -93,33 +95,35 @@ fun SecurityLoginModal(
                         val id = element[0]?.toString() ?: "1"
                         val name = element[1]?.toString() ?: ""
                         val brand = element[2]?.toString() ?: "MainBrand"
-                        val level = element[3]?.toString()?.toIntOrNull() ?: -1
+                        val level = element[3]?.toString()?.toIntOrNull() ?: 10
                         if (name.isNotBlank() && list.none { it.name == name }) {
-                            list.add(ShopWorkItem(id, name, brand, level))
+                            list.add(UserWorkItem(id, name, brand, level))
                         }
                     } else if (element.size >= 2) {
                         val id = element[0]?.toString() ?: "1"
                         val name = element[1]?.toString() ?: ""
                         if (name.isNotBlank() && list.none { it.name == name }) {
-                            list.add(ShopWorkItem(id, name, "MainBrand", -1))
+                            list.add(UserWorkItem(id, name, "MainBrand", -1))
                         }
                     }
                 } else if (element != null) {
                     val name = element.toString().trim()
                     if (name.isNotBlank() && list.none { it.name == name }) {
-                        list.add(ShopWorkItem("1", name, "MainBrand", -1))
+                        list.add(UserWorkItem("1", name, "MainBrand", -1))
                     }
                 }
             }
         }
-        if (list.isEmpty()) {
-            emptyList()
-        } else {
-            list
+        list
+    }
+    val shopItemsState = remember(currentUser) { mutableStateListOf(*initialShopItems.toTypedArray()) }
+    val allDbShops = remember(step) {
+        try {
+            UserRepository(context).getAllShops()
+        } catch (e: Exception) {
+            emptyList<List<*>>()
         }
     }
-    val shopItemsState = remember { mutableStateListOf(*initialShopItems.toTypedArray()) }
-    val shopsList = remember(shopItemsState.toList()) { shopItemsState.map { listOf(it.id, it.name, it.brand, it.level) }.toMutableStateList() }
     var selectedShop by remember { mutableStateOf(initialShopItems.firstOrNull()?.name ?: "") }
 
     val handleClose = {
@@ -132,12 +136,12 @@ fun SecurityLoginModal(
 
     AlertDialog(
         onDismissRequest = handleClose,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Security, contentDescription = null, tint = DarkBlueAccent)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Security & Account Panel", color = TextLight, fontWeight = FontWeight.Bold)
+                Text("Security & Account Panel", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -147,18 +151,7 @@ fun SecurityLoginModal(
                     .heightIn(max = 380.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (isLoggedIn && step == "SELECT_USER") {
-                    SuccessPanel(
-                        currentUser = currentUser,
-                        selectedUsername = selectedUsername,
-                        selectedShop = selectedShop,
-                        onLogout = {
-                            onLogout()
-                            onDismiss()
-                        }
-                    )
-                } else {
-                    when (step) {
+                when (step) {
                         "SELECT_USER" -> {
                             Text(
                                 text = "Step 1: Choose New Login or select a previous user",
@@ -185,7 +178,7 @@ fun SecurityLoginModal(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Previously Logged-In Users:",
-                                color = TextLight,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp
                             )
@@ -237,17 +230,42 @@ fun SecurityLoginModal(
                                 errorMessage = errorMessage,
                                 onForgot = { step = "FORGET_PASSWORD" },
                                 onCreateNewUser = { step = "CREATE_USER" },
-                                onBack = { step = "SELECT_USER" }
+                                onBack = { step = "SELECT_USER" },
+                                onContinue = {
+                                    val ok = onLogin(selectedUsername, passwordInput, serverLinkInput)
+                                    if (ok) {
+                                        try {
+                                            val file = File(context.filesDir, "prevlog.text")
+                                            val userId = currentUser?.id ?: (1000..9999).random()
+                                            val entry = "$userId | $selectedUsername | $serverLinkInput"
+                                            val existing = if (file.exists()) file.readText() else ""
+                                            if (!existing.contains("$userId | $selectedUsername") && !existing.contains(selectedUsername)) {
+                                                file.appendText("$entry\n")
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                        step = "SHOP_MANAGEMENT"
+                                    } else {
+                                        errorMessage = "Invalid. User name or Password Incorrect"
+                                    }
+                                }
                             )
                         }
 
                         "SHOP_MANAGEMENT" -> {
                             ShopManagementPanel(
                                 selectedShop = selectedShop,
-                                onShopSelected = { selectedShop = it },
-                                userShopData = currentUser?.userWorkShop,
+                                onShopSelected = { shopName ->
+                                    selectedShop = shopName
+                                    val username = currentUser?.userName ?: selectedUsername
+                                    userViewModel.updateUserShop(username, listOf(shopName))
+                                    onDismiss()
+                                },
+                                userShopData = JsonHelper.dumps(shopItemsState.map { it.toList() }),
                                 onCreateShop = { step = "CREATE_SHOP" },
                                 onRequestShop = { step = "REQUEST_SHOP" },
+                                onBack = { step = "SELECT_USER" },
                                 errorMessage = errorMessage
                             )
                         }
@@ -260,6 +278,7 @@ fun SecurityLoginModal(
                                     val shopname = Shop.getOrNull(0)?.toString() ?: ""
                                     val shopbrand = Shop.getOrNull(1)?.toString() ?: "MainBrand"
                                     val username = currentUser?.userName ?: selectedUsername
+                                    val ownerUserId = currentUser?.userId ?: 1
 
                                     userViewModel.insertShop(
                                         shopName = shopname,
@@ -269,21 +288,17 @@ fun SecurityLoginModal(
                                         shopEmail = currentUser?.email ?: "@hipermarket.com",
                                         shopCountry = currentUser?.country ?: "",
                                         shopContact = currentUser?.phoneNum ?: "",
-                                        shopworkers = "[[\'"+ currentUser?.userId +"\', \'" +currentUser?.userName + "\' , \'" +currentUser?.userName + "\', 'OWNER', \'"+shopname+ "\', \'"+shopbrand+ "\', 10]]"
+                                        shopworkers = "[['$ownerUserId', '$username', '$username', 'OWNER', '$shopname', '$shopbrand', 10]]"
                                     )
                                     if (shopItemsState.none { it.name == shopname }) {
 
                                         // Updating User Working place
 
-                                        val newItem = ShopWorkItem(
-                                            id = newId,
-                                            name = shopname,
-                                            brand = shopbrand,
-                                            level = 10
-                                        )
-                                        if (shopItemsState.none { it.name == shopname }) {
+                                        val newItem = UserWorkItem(newId, shopname, shopbrand, 10)
+
+                                        if (shopItemsState.none { it.id == newId }) {
                                             shopItemsState.add(newItem)
-                                            val packedJson = JsonHelper.dumps(shopItemsState)
+                                            val packedJson = JsonHelper.dumps(shopItemsState.map { it.toList() })
                                             userViewModel.updateUserWorkShop(username, packedJson)
                                             userViewModel.updateUserShop(username, listOf(shopname))
                                         }
@@ -298,27 +313,37 @@ fun SecurityLoginModal(
                         "REQUEST_SHOP" -> {
                             RequestShopPanel(
                                 currentUserUsername = currentUser?.userName ?: selectedUsername,
-                                shopsList = shopsList,
+                                shopsList = allDbShops,
                                 onRequestSubmitted = { requestedShop ->
-                                    val pendingName = "Waiting For Response: $requestedShop"
-                                    val newId = (100..999).random().toString()
-                                    val newItem = ShopWorkItem(id = newId, name = pendingName, brand = "PendingBrand", level = 1)
-                                    if (shopItemsState.none { it.name == pendingName }) {
+                                    val ownerUserId = currentUser?.userId ?: 1
+                                    val shopId = requestedShop.getOrNull(0)?.toString() ?: (100..999).random().toString()
+                                    val shopname = requestedShop.getOrNull(1)?.toString() ?: ""
+                                    val shopbrand = requestedShop.getOrNull(2)?.toString() ?: "MainBrand"
+                                    val username = currentUser?.userName ?: selectedUsername
+
+                                    val newItem = UserWorkItem(shopId, shopname, shopbrand, -1)
+                                    if (shopItemsState.none { it.name == shopname }) {
                                         shopItemsState.add(newItem)
-                                        val packedJson = JsonHelper.dumps(shopItemsState)
-                                        userViewModel.updateUserWorkShop(currentUser?.userName ?: selectedUsername, packedJson)
+                                        val packedUserWorkShopJson = JsonHelper.dumps(shopItemsState.map { it.toList() })
+                                        userViewModel.updateUserWorkShop(username, packedUserWorkShopJson)
+                                        userViewModel.updateUserShop(username, listOf(shopname))
                                     }
+
+                                    val newShopWorker = ShopWorkItem(
+                                        ownerId = ownerUserId.toString(),
+                                        ownerName = username,
+                                        ownerType = "Worker",
+                                        name = shopname,
+                                        brand = shopbrand,
+                                        level = -2
+                                    )
+                                    val shopWorkersJson = JsonHelper.dumps(listOf(newShopWorker.toList()))
+                                    userViewModel.updateShopWorkers(shopname, shopbrand, shopWorkersJson)
+
+                                    selectedShop = shopname
                                     step = "SHOP_MANAGEMENT"
                                 },
                                 onBack = { step = "SHOP_MANAGEMENT" }
-                            )
-                        }
-
-                        "SUCCESS_PANEL" -> {
-                            SuccessPanel(
-                                currentUser = currentUser,
-                                selectedUsername = selectedUsername,
-                                selectedShop = selectedShop
                             )
                         }
 
@@ -348,7 +373,7 @@ fun SecurityLoginModal(
                             value = serverLinkInput,
                             onValueChange = { serverLinkInput = it; urlCheckStatus = null },
                             label = { Text("Server / DB Link Combobox", color = TextMuted) },
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextLight, unfocusedTextColor = TextLight),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -375,46 +400,12 @@ fun SecurityLoginModal(
                         }
 
                         Spacer(modifier = Modifier.height(2.dp))
-
-                        TextButton(
-                            onClick = { step = "CREATE_USER" },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Create new user if not exist →", color = DarkBlueAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
                     }
-                }
                 Unit
             }
         },
         confirmButton = {
             when (step) {
-                "NEW_LOGIN" -> {
-                    Button(
-                        onClick = {
-                            val ok = onLogin(selectedUsername, passwordInput, serverLinkInput)
-                            if (ok) {
-                                try {
-                                    val file = File(context.filesDir, "prevlog.text")
-                                    val userId = currentUser?.id ?: (1000..9999).random()
-                                    val entry = "$userId | $selectedUsername | $serverLinkInput"
-                                    val existing = if (file.exists()) file.readText() else ""
-                                    if (!existing.contains("$userId | $selectedUsername") && !existing.contains(selectedUsername)) {
-                                        file.appendText("$entry\n")
-                                    }
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                                step = "SHOP_MANAGEMENT"
-                            } else {
-                                errorMessage = "Invalid credentials. Try username: admin, pass: 1234"
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = DarkBlueAccent)
-                    ) {
-                        Text("Continue")
-                    }
-                }
                 "SHOP_MANAGEMENT" -> {
                     Button(
                         onClick = {
@@ -436,23 +427,6 @@ fun SecurityLoginModal(
                         Text("Continue")
                     }
                 }
-                "SUCCESS_PANEL" -> {
-                    Button(
-                        onClick = {
-                            handleClose()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
-                    ) {
-                        Text("Enter Shop Panel")
-                    }
-                }
-                else -> {
-                    if (isLoggedIn && step == "SELECT_USER") {
-                        Button(onClick = handleClose, colors = ButtonDefaults.buttonColors(containerColor = DarkBlueAccent)) {
-                            Text("Done")
-                        }
-                    }
-                }
             }
             Unit
         },
@@ -463,10 +437,13 @@ fun SecurityLoginModal(
         }
     )
 }
-
 data class ShopWorkItem(
-    val id: String,
+    val ownerId: String,
+    val ownerName: String,
+    val ownerType: String,
     val name: String,
     val brand: String,
     val level: Int
-)
+) {
+    fun toList(): List<Any> = listOf(ownerId, ownerName, ownerType, name, brand, level)
+}

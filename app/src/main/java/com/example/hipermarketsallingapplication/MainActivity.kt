@@ -7,10 +7,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -111,7 +114,7 @@ enum class AppDestination(val label: String, val icon: ImageVector, val requires
     CHART("Active Cart", Icons.Default.ShoppingCart, requiresLogin = false, showInBottomNav = false),
     SETTINGS("Settings", Icons.Default.Settings, requiresLogin = false, showInBottomNav = true),
     POS("POS Terminal", Icons.Default.PointOfSale, requiresLogin = true, showInBottomNav = true),
-    MANAGE("Manage", Icons.Default.AdminPanelSettings, requiresLogin = true, showInBottomNav = true),
+    MANAGE("Manage", Icons.Default.AdminPanelSettings, requiresLogin = true, showInBottomNav = false),
     USER_PANEL("User Profile", Icons.Default.AccountCircle, requiresLogin = true, showInBottomNav = true)
 }
 
@@ -132,6 +135,7 @@ fun MainAppScreen(
 
     MainAppScreenContent(
         currentUser = currentUser,
+        userViewModel = userViewModel,
         isLoggedIn = isLoggedIn,
         onOpenSecurity = { showSecurityModal = true },
         screenContent = { destination, user, onNavigate ->
@@ -151,6 +155,7 @@ fun MainAppScreen(
                 )
                 AppDestination.POS -> PosScreen(
                     viewModel = posViewModel,
+                    userViewModel = userViewModel,
                     docViewModel = docViewModel,
                     activeUser = user?.userName ?: "admin"
                 )
@@ -162,6 +167,7 @@ fun MainAppScreen(
                 )
                 AppDestination.USER_PANEL -> UserPanelScreen(
                     currentUser = user,
+                    userViewModel = userViewModel,
                     onLogout = {
                         userViewModel.logout()
                     },
@@ -201,11 +207,16 @@ fun MainAppScreen(
 @Composable
 fun MainAppScreenContent(
     currentUser: User? = null,
+    userViewModel: UserViewModel? = null,
     isLoggedIn: Boolean = false,
     onOpenSecurity: () -> Unit = {},
     screenContent: @Composable (AppDestination, User?, (AppDestination) -> Unit) -> Unit
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestination.HOME) }
+    val userWorkShops = userViewModel?.userWorkingShops?.collectAsState()?.value ?: emptyList()
+
+    val userShop = currentUser?.userShop
+    val hasWorkingShops = userWorkShops.isNotEmpty() || (!userShop.isNullOrBlank() && userShop != "[]" && userShop != "None")
 
     // When logged in, select user panel; when logged out, go to home panel
     LaunchedEffect(isLoggedIn) {
@@ -232,6 +243,8 @@ fun MainAppScreenContent(
                         selected = currentDestination == dest,
                         onClick = {
                             if (dest.requiresLogin && !isLoggedIn) {
+                                onOpenSecurity()
+                            } else if (dest == AppDestination.MANAGE && !hasWorkingShops) {
                                 onOpenSecurity()
                             } else {
                                 currentDestination = dest
@@ -292,6 +305,8 @@ fun MainAppScreenContent(
             screenContent(currentDestination, currentUser) { navDest ->
                 if (navDest.requiresLogin && !isLoggedIn) {
                     onOpenSecurity()
+                } else if (navDest == AppDestination.MANAGE && !hasWorkingShops) {
+                    onOpenSecurity()
                 } else {
                     currentDestination = navDest
                 }
@@ -303,76 +318,468 @@ fun MainAppScreenContent(
 @Composable
 fun UserPanelScreen(
     currentUser: User?,
+    userViewModel: UserViewModel,
     onLogout: () -> Unit,
     onNavigateTo: (AppDestination) -> Unit
 ) {
+    var selectedTab by remember { mutableStateOf(0) } // 0: Messages, 1: Notif, 2: History
+    var activeStatView by remember { mutableStateOf<String?>(null) } // "following", "likes", "saved", or null
+    val userWorkShops by userViewModel.userWorkingShops.collectAsState()
+    var shopDropdownExpanded by remember { mutableStateOf(false) }
+
+    val activeShopName = currentUser?.userShop?.ifBlank { "All Working Shops" } ?: "All Working Shops"
+
     Card(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground),
-        shape = RoundedCornerShape(12.dp)
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(Icons.Default.AccountCircle, contentDescription = null, tint = DarkBlueAccent, modifier = Modifier.size(72.dp))
-            Text("User Profile & Active Session", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = TextLight)
-
-            Card(
+            // Instagram Top Header Bar
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                shape = RoundedCornerShape(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Username: ${currentUser?.userName ?: "Guest"}", color = TextLight, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("Full Name: ${currentUser?.fName ?: ""} ${currentUser?.lName ?: ""}", color = TextMuted, fontSize = 14.sp)
-                    Text("Role / Type: ${currentUser?.userType ?: "User"}", color = TextMuted, fontSize = 14.sp)
-                    Text("Assigned Shop: ${currentUser?.userShop ?: "None"}", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Country / Location: ${currentUser?.country ?: "N/A"}", color = TextMuted, fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "@${currentUser?.userName ?: "user_profile"}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Icon(Icons.Default.Verified, contentDescription = null, tint = DarkBlueAccent, modifier = Modifier.size(16.dp))
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { onNavigateTo(AppDestination.POS) },
-                colors = ButtonDefaults.buttonColors(containerColor = DarkBlueAccent),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(8.dp)
+            // Instagram Profile Header Section (Avatar + Stats)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.PointOfSale, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Open POS Terminal", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                // Profile Avatar with Ring
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                colors = listOf(DarkBlueAccent, SuccessGreen, EnergyRed)
+                            ),
+                            shape = CircleShape
+                        )
+                        .padding(3.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                tint = DarkBlueAccent,
+                                modifier = Modifier.size(68.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Stats: Following, Likes, Saved (Clickable to show panel below tabs)
+                Row(
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    ProfileStatColumn("Following", "3") { activeStatView = "following" }
+                    ProfileStatColumn("Likes", "142") { activeStatView = "likes" }
+                    ProfileStatColumn("Saved", "18") { activeStatView = "saved" }
+                }
             }
 
-            Button(
-                onClick = { onNavigateTo(AppDestination.MANAGE) },
-                colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = DarkBlueAccent)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Manage System & Shops", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextLight)
+            // Bio / User Details
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "${currentUser?.fName ?: "Hiper"} ${currentUser?.lName ?: "User"}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "💼 Role: ${currentUser?.userType ?: "Admin"} | ",
+                        fontSize = 13.sp,
+                        color = TextMuted
+                    )
+
+                    Box {
+                        OutlinedButton(
+                            onClick = { shopDropdownExpanded = true },
+                            modifier = Modifier.height(30.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text("🏬 $activeShopName", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = DarkBlueAccent)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Shop", tint = DarkBlueAccent, modifier = Modifier.size(16.dp))
+                        }
+
+                        DropdownMenu(
+                            expanded = shopDropdownExpanded,
+                            onDismissRequest = { shopDropdownExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("🌐 All Working Shops (Global)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SuccessGreen) },
+                                onClick = {
+                                    userViewModel.updateUserShop(currentUser?.userName ?: "", emptyList())
+                                    shopDropdownExpanded = false
+                                }
+                            )
+
+                            HorizontalDivider()
+
+                            if (userWorkShops.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Main Shop", fontSize = 11.sp) },
+                                    onClick = {
+                                        userViewModel.updateUserShop(currentUser?.userName ?: "", listOf("Main Shop"))
+                                        shopDropdownExpanded = false
+                                    }
+                                )
+                            } else {
+                                userWorkShops.forEach { wShop ->
+                                    DropdownMenuItem(
+                                        text = { Text("🏬 ${wShop.name} (${wShop.brandName})", fontSize = 11.sp) },
+                                        onClick = {
+                                            userViewModel.updateUserShop(currentUser?.userName ?: "", listOf(wShop.name))
+                                            shopDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = "📍 Location: ${currentUser?.country ?: "Global"} | ✉️ ${currentUser?.email ?: "user@hipermarket.com"}",
+                    fontSize = 12.sp,
+                    color = TextMuted
+                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Action Buttons (POS Terminal, Manage, Edit Profile)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Button(
+                    onClick = { onNavigateTo(AppDestination.POS) },
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkBlueAccent),
+                    modifier = Modifier.weight(1f).height(38.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(2.dp)
+                ) {
+                    Icon(Icons.Default.PointOfSale, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("POS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
 
+                Button(
+                    onClick = { onNavigateTo(AppDestination.MANAGE) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.weight(1f).height(38.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(2.dp)
+                ) {
+                    Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = DarkBlueAccent, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("Manage", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                }
+
+                Button(
+                    onClick = { onNavigateTo(AppDestination.SETTINGS) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.weight(1f).height(38.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(2.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = DarkBlueAccent, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("Edit Profile", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+
+            // Log Out Button placed ON TOP of the tabs as requested
             Button(
                 onClick = onLogout,
                 colors = ButtonDefaults.buttonColors(containerColor = EnergyRed),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(40.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Sign Out / Log Out", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Sign Out / Log Out", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+
+            Divider(color = DarkBlueDarker, thickness = 1.dp)
+
+            // Instagram Tabs Row (Messages, Notification, History)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TabButton(
+                    icon = Icons.Default.Message,
+                    label = "Messages",
+                    isSelected = activeStatView == null && selectedTab == 0,
+                    onClick = {
+                        activeStatView = null
+                        selectedTab = 0
+                    }
+                )
+                TabButton(
+                    icon = Icons.Default.Notifications,
+                    label = "Notif",
+                    isSelected = activeStatView == null && selectedTab == 1,
+                    onClick = {
+                        activeStatView = null
+                        selectedTab = 1
+                    }
+                )
+                TabButton(
+                    icon = Icons.Default.History,
+                    label = "History",
+                    isSelected = activeStatView == null && selectedTab == 2,
+                    onClick = {
+                        activeStatView = null
+                        selectedTab = 2
+                    }
+                )
+            }
+
+            Divider(color = DarkBlueDarker, thickness = 0.5.dp)
+
+            // Tab Content Section
+            when (activeStatView) {
+                "following" -> FollowingShopsTabContent()
+                "likes" -> LikedProductsTabContent()
+                "saved" -> SavedProductsTabContent()
+                else -> {
+                    when (selectedTab) {
+                        0 -> MessagesTabContent()
+                        1 -> NotificationsTabContent()
+                        2 -> CartHistoryTabContent()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileStatColumn(title: String, count: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(6.dp)
+    ) {
+        Text(count, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+        Text(title, fontSize = 12.sp, color = TextMuted)
+    }
+}
+
+@Composable
+fun TabButton(icon: ImageVector, label: String, isSelected: Boolean, onClick: () -> Unit) {
+    val tintColor = if (isSelected) DarkBlueAccent else TextMuted
+    TextButton(onClick = onClick) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Icon(icon, contentDescription = label, tint = tintColor, modifier = Modifier.size(22.dp))
+            Text(label, color = tintColor, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+        }
+    }
+}
+
+@Composable
+fun LikedProductsTabContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("❤️ Liked Products (Favorites)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        val likedItems = listOf(
+            Triple("Wireless POS Barcode Scanner", "$120.00", "Shop 1"),
+            Triple("Thermal Receipt Printer 80mm", "$250.00", "Shop 1"),
+            Triple("Cash Drawer Heavy Duty", "$85.00", "Shop 2"),
+            Triple("Touch POS Terminal 15-inch", "$650.00", "Shop 1")
+        )
+        likedItems.forEach { item ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(item.first, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Location: ${item.third}", color = TextMuted, fontSize = 11.sp)
+                    }
+                    Text(item.second, color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MessagesTabContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("💬 Messages & Chats", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        val messages = listOf(
+            Pair("System Admin", "Your daily POS shift report for Shop 1 has been verified."),
+            Pair("Warehouse Manager", "New stock of barcode scanners has arrived."),
+            Pair("Customer Support", "Inquiry resolved for invoice #1042.")
+        )
+        messages.forEach { msg ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(msg.first, color = DarkBlueAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text(msg.second, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotificationsTabContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("🔔 System Notifications", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        val notifications = listOf(
+            Pair("Shift Open", "POS Terminal shift opened successfully at Shop 1."),
+            Pair("Price Update", "Promotional price update applied to 4 items."),
+            Pair("Backup Complete", "Local database backup synced to secure storage.")
+        )
+        notifications.forEach { notif ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(notif.first, color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text(notif.second, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FollowingShopsTabContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("🏪 Following Shops", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        val shops = listOf(
+            Triple("Shop 1 - Central Retail", "Main Branch", "Following"),
+            Triple("Shop 2 - Downtown Electronics", "Express Branch", "Following"),
+            Triple("Shop 3 - Express Mart", "Suburban Branch", "Following")
+        )
+        shops.forEach { shop ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(shop.first, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(shop.second, color = TextMuted, fontSize = 11.sp)
+                    }
+                    Text(shop.third, color = DarkBlueAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CartHistoryTabContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("🛒 Cart & Sales History", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        val historyItems = listOf(
+            Triple("Order #1052 - POS Checkout", "$340.00", "Completed • Today"),
+            Triple("Order #1051 - Express Sale", "$85.50", "Completed • Yesterday"),
+            Triple("Order #1050 - Retail Counter", "$190.00", "Completed • 2 days ago")
+        )
+        historyItems.forEach { item ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(item.first, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(item.third, color = TextMuted, fontSize = 11.sp)
+                    }
+                    Text(item.second, color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SavedProductsTabContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("🔖 Saved Products & Bookmarks", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        val savedItems = listOf(
+            Triple("Receipt Paper Rolls (Box of 50)", "$45.00", "Saved for next order"),
+            Triple("Barcode Labels 40x30mm", "$18.00", "Inventory stock item"),
+            Triple("POS Touch Screen Protector", "$12.50", "Accessory")
+        )
+        savedItems.forEach { item ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(item.first, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(item.third, color = TextMuted, fontSize = 11.sp)
+                    }
+                    Text(item.second, color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
             }
         }
     }
@@ -394,7 +801,7 @@ fun ActiveCartDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -433,7 +840,8 @@ fun ActiveCartDialog(
                     cart.forEach { item ->
                         CartItemRow(
                             item = item,
-                            onQtyChange = { newQty -> posViewModel.updateCartQty(item, newQty) },
+                            onUpdateItem = { updatedItem -> posViewModel.updateCartItem(updatedItem) },
+                            onSplitItem = { itemToSplit -> posViewModel.splitCartItem(itemToSplit) },
                             onRemove = { posViewModel.removeFromCart(item) }
                         )
                     }
