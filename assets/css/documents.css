@@ -1,0 +1,191 @@
+/**
+ * documents.css - Manage Documents Module Styling (100% Matching DocumentsScreen.kt & Doc.py)
+ */
+.doc-header-tag {
+  display: inline-block;
+  background: var(--success);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  margin-bottom: 2px;
+}
+
+.doc-filter-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc-filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  align-items: center;
+  padding-bottom: 2px;
+}
+
+.doc-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.doc-filter-field span {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.doc-filter-field input, .doc-filter-field select {
+  min-height: 34px;
+  padding: 0 8px;
+  font-size: 11px;
+  background: #08111e;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+.doc-checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.doc-action-bar {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.doc-action-bar .button {
+  flex: 1;
+  min-height: 36px;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 4px;
+}
+
+.doc-btn-search, .doc-btn-view { background: #1565c0; color: #fff; }
+.doc-btn-search:hover, .doc-btn-view:hover { background: #0d47a1; }
+
+.doc-btn-delete { background: var(--danger); color: #fff; }
+.doc-btn-delete:hover { background: #c62828; }
+
+.doc-btn-undo { background: #1e293b; color: #fff; border: 1px solid var(--line); }
+.doc-btn-undo:hover { background: #334155; }
+
+.doc-btn-getdate { background: var(--success); color: #fff; }
+.doc-btn-getdate:hover { background: #16a34a; }
+
+.notebook-tabs-row {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  background: var(--panel);
+  padding: 4px 4px 0 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+
+.notebook-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px 6px 0 0;
+  background: var(--panel-raised);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.notebook-tab.active {
+  background: var(--panel);
+  color: var(--success);
+  border-color: var(--success);
+  border-bottom-color: var(--panel);
+}
+
+.notebook-tab-close {
+  margin-left: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.notebook-tab-close:hover {
+  color: var(--danger);
+}
+
+.sub-tabs-row {
+  display: flex;
+  gap: 4px;
+  background: #08111e;
+  padding: 4px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.sub-tab {
+  flex: 1;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.sub-tab.active {
+  background: var(--panel-raised);
+  color: var(--accent);
+}
+
+.summary-header-card {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #08111e;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.report-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.report-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #08111e;
+  display: grid;
+  gap: 6px;
+}
+
+.report-card span { color: var(--muted); font-size: 11px; }
+.report-card strong { font-size: 20px; color: var(--success); }

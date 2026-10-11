@@ -1,0 +1,13 @@
+/**
+ * app.css - Master Stylesheet Importing Frame/Page CSS Modules
+ */
+@import url("css/base.css");
+@import url("css/sidebar.css");
+@import url("css/home.css");
+@import url("css/pos.css");
+@import url("css/userprofile.css");
+@import url("css/documents.css");
+@import url("css/shopsettings.css");
+@import url("css/getvalue.css");
+@import url("css/security.css");
+@import url("css/manager.css");

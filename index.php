@@ -1,0 +1,551 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/API/config.php';
+
+// Initial Server & SQL Database Health Check
+$dbConnected = false;
+$dbError = '';
+try {
+    app_db()->query('SELECT 1');
+    $dbConnected = true;
+} catch (\Throwable $e) {
+    $dbError = $e->getMessage();
+}
+?>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d47a1">
+  <meta name="referrer" content="same-origin">
+  <title>Hiper Market Selling Application Web</title>
+
+  <!-- SEPARATE MODULAR CSS FILES FOR EACH FRAME/PAGE -->
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/home.css">
+  <link rel="stylesheet" href="assets/css/pos.css">
+  <link rel="stylesheet" href="assets/css/userprofile.css">
+  <link rel="stylesheet" href="assets/css/documents.css">
+  <link rel="stylesheet" href="assets/css/shopsettings.css">
+  <link rel="stylesheet" href="assets/css/getvalue.css">
+  <link rel="stylesheet" href="assets/css/security.css">
+  <link rel="stylesheet" href="assets/css/manager.css">
+
+  <!-- SEPARATE MODULAR JS FILES FOR EACH FRAME/PAGE -->
+  <script src="assets/js/api.js" defer></script>
+  <script src="assets/js/auth.js" defer></script>
+  <script src="assets/js/getvalue.js" defer></script>
+  <script src="assets/js/home.js" defer></script>
+  <script src="assets/js/pos.js" defer></script>
+  <script src="assets/js/userprofile.js" defer></script>
+  <script src="assets/js/products.js" defer></script>
+  <script src="assets/js/documents.js" defer></script>
+  <script src="assets/js/tools.js" defer></script>
+  <script src="assets/js/customers.js" defer></script>
+  <script src="assets/js/shops.js" defer></script>
+  <script src="assets/js/shopsettings.js" defer></script>
+  <script src="assets/js/reports.js" defer></script>
+  <script src="assets/js/applicationsettings.js" defer></script>
+  <script src="assets/js/manager.js" defer></script>
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="Hiper Market home">
+        <span class="brand-mark">H</span>
+        <span><strong>Hiper Market</strong><small>Web Selling Application</small></span>
+      </a>
+
+      <!-- TERMINAL MENU -->
+      <div class="nav-section-title">TERMINAL MENU</div>
+      <nav class="navigation" aria-label="Terminal navigation">
+        <button class="nav-link active" data-view="overview"><span>🏠</span>Home / Feed</button>
+        <button class="nav-link" data-view="pos"><span>💻</span>POS Terminal</button>
+        <button class="nav-link" data-view="profile"><span>👤</span>User Profile</button>
+        <button class="nav-link" data-view="settings"><span>📱</span>App Preferences</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="status-dot <?php echo $dbConnected ? 'online' : 'offline'; ?>" id="api-indicator"></span>
+        <span id="api-status"><?php echo $dbConnected ? 'SQL Server Connected' : 'SQL Ready'; ?></span>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <!-- TOP HEADER BAR -->
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="menu-toggle" aria-label="Open navigation">☰</button>
+        <div><p class="eyebrow" id="page-kicker">HIPER MARKET</p><h1 id="page-title">Home / Feed</h1></div>
+        <div class="topbar-right">
+          <div class="topbar-shop-badge">🏬 <span id="topbar-shop-name">Main Shop</span></div>
+          <span class="user-name" id="user-name">Not signed in</span>
+          <button class="button button-primary button-small" id="open-login-btn">🛡️ Security Log In</button>
+          <button class="button button-quiet hidden" id="logout-button">Sign Out</button>
+        </div>
+      </header>
+
+      <!-- 1. OVERVIEW / HOME FEED VIEW -->
+      <section class="view active" id="view-overview">
+        <div class="welcome-row">
+          <div><p class="eyebrow">BUSINESS OVERVIEW</p><h2>Welcome to Hiper Market Web</h2><p class="muted">Connected SQL Database Server.</p></div>
+          <button class="button button-primary" data-open-view="pos">Open POS Terminal <span>→</span></button>
+        </div>
+        <div class="metric-grid">
+          <article class="metric-card"><span class="metric-label">Sales Today</span><strong id="metric-sales">$0.00</strong><small id="metric-sales-count">0 transactions today</small></article>
+          <article class="metric-card"><span class="metric-label">Total Products</span><strong id="metric-products">0</strong><small>In connected SQL DB</small></article>
+          <article class="metric-card"><span class="metric-label">Low Stock Alert</span><strong id="metric-stock">0</strong><small>At or below 5 units</small></article>
+          <article class="metric-card"><span class="metric-label">Active Shops</span><strong id="metric-shops">1</strong><small>Store locations</small></article>
+        </div>
+        <div class="content-grid">
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">QUICK ACCESS</p><h3>Terminal Modules</h3></div></div>
+            <div class="quick-grid">
+              <button class="quick-card" data-open-view="pos"><span class="quick-icon">💻</span><strong>POS Terminal</strong><small>Scan items, calculate totals, and checkout</small></button>
+              <button class="quick-card" data-open-view="profile"><span class="quick-icon">👤</span><strong>User Profile</strong><small>Manage account, statistics, and manager panel</small></button>
+            </div>
+          </article>
+          <article class="panel server-panel">
+            <p class="eyebrow">SERVER SQL CONNECTION</p>
+            <h3 id="server-heading"><?php echo $dbConnected ? 'Server and SQL DB Connected' : 'Ready'; ?></h3>
+            <p class="muted" id="server-detail"><?php echo $dbConnected ? 'PHP API and PDO SQL connection verified.' : 'Database ready.'; ?></p>
+            <button class="button button-secondary" id="retry-health">Test SQL Health</button>
+          </article>
+        </div>
+      </section>
+
+      <!-- 2. POS TERMINAL VIEW -->
+      <section class="view" id="view-pos">
+        <div class="section-toolbar">
+          <div><p class="eyebrow">CHECKOUT</p><h2>POS Terminal</h2></div>
+          <div class="toolbar-actions pos-action-bar">
+            <button class="button button-secondary" id="pos-calc-btn">🧮 Calcu (F1)</button>
+            <button class="button button-secondary" id="pos-none-item-btn">📦 None (F2)</button>
+            <button class="button button-secondary" id="pos-activities-btn">⚡ Activities (F6)</button>
+            <button class="button button-primary" id="pos-payment-btn">💳 Payment (F10)</button>
+            <button class="button button-secondary" id="pos-drawer-btn">💵 Cash Drawer</button>
+            <button class="button button-secondary" id="clear-cart">Clear Cart</button>
+          </div>
+        </div>
+        <div class="pos-layout">
+          <article class="panel product-picker">
+            <label class="field-label" for="pos-search">Search Inventory</label>
+            <input class="input" id="pos-search" placeholder="Search product name, code, or scan barcode..." autocomplete="off">
+            <div class="product-results" id="pos-results"><p class="empty-state">Loading inventory...</p></div>
+          </article>
+          <article class="panel cart-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">ACTIVE CART</p><h3>Active Cart <span class="count-pill" id="cart-count">0</span></h3></div>
+            </div>
+            <div class="form-grid compact">
+              <label class="field"><span>Shop</span><select class="input" id="sale-shop"><option value="">Select Shop</option></select></label>
+              <label class="field"><span>Customer</span><input class="input" id="sale-customer" placeholder="Customer Name / ID"></label>
+            </div>
+            <div id="cart-items" class="cart-items"><p class="empty-state">Your active cart is empty.</p></div>
+            <div class="cart-summary">
+              <div><span>Subtotal</span><strong id="cart-subtotal">$0.00</strong></div>
+              <div><span>Tax</span><strong id="cart-tax">$0.00</strong></div>
+              <div><span>Discount</span><strong id="cart-discount">$0.00</strong></div>
+              <div class="grand-total"><span>Total After</span><strong id="cart-total">$0.00</strong></div>
+            </div>
+            <div class="form-grid compact">
+              <label class="field"><span>Received Amount ($)</span><input class="input" id="sale-received" type="number" min="0" step="0.01" value="0"></label>
+              <label class="field"><span>Payment Method</span><select class="input" id="sale-method"><option>Cash</option><option>Card</option><option>Credit</option><option>Mobile Payment</option></select></label>
+            </div>
+            <button class="button button-primary full-width" id="complete-sale">Complete Sale &amp; Print Slip</button>
+            <p class="form-message" id="pos-message" role="status"></p>
+          </article>
+        </div>
+      </section>
+
+      <!-- 3. USER PROFILE VIEW (Matching UserPanelScreen in MainActivity.kt) -->
+      <section class="view" id="view-profile">
+        <div class="panel profile-card">
+          <div class="profile-header-bar">
+            <div class="profile-title-group">
+              <h2 id="prof-handle">@admin</h2>
+              <span class="verified-badge">✓ Verified</span>
+            </div>
+          </div>
+
+          <div class="profile-header-main">
+            <div class="profile-avatar-ring">
+              <div class="profile-avatar-inner" id="prof-avatar">A</div>
+            </div>
+            <div class="profile-stats-row">
+              <div class="stat-col"><strong id="stat-following">3</strong><small>Following</small></div>
+              <div class="stat-col"><strong id="stat-likes">142</strong><small>Likes</small></div>
+              <div class="stat-col"><strong id="stat-saved">18</strong><small>Saved</small></div>
+            </div>
+          </div>
+
+          <div class="profile-bio-box">
+            <h3 id="prof-full-name">System Admin</h3>
+            <p class="muted">💼 Role: <span id="prof-role">Admin</span> | 🏬 Shop: <strong id="prof-shop">Main Shop</strong></p>
+            <p class="muted">📍 Location: <span id="prof-location">Ethiopia</span> | ✉️ <span id="prof-email">admin@hipermarket.com</span></p>
+          </div>
+
+          <div class="profile-action-bar">
+            <button class="button button-primary" data-open-view="pos">POS Terminal</button>
+            <button class="button button-secondary" id="prof-manage-btn">⚙️ Manage Panel</button>
+            <button class="button button-secondary" data-open-view="settings">Edit Profile</button>
+          </div>
+
+          <button class="button button-danger full-width margin-top-sm" id="profile-signout-btn">Sign Out / Log Out</button>
+
+          <hr class="divider">
+
+          <div class="profile-sub-tabs">
+            <button class="profile-tab active" id="ptab-messages">💬 Messages</button>
+            <button class="profile-tab" id="ptab-notif">🔔 Notifications</button>
+            <button class="profile-tab" id="ptab-history">🛒 Sales History</button>
+          </div>
+
+          <div class="profile-tab-content" id="prof-tab-content">
+            <p class="empty-state">Messages &amp; chats loading...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. MANAGER FRAME VIEW (#view-manager / ManageForm.py) -->
+      <section class="view" id="view-manager">
+        <div class="section-toolbar">
+          <div><p class="eyebrow">ADMINISTRATOR CONTROL</p><h2>Manager Panel</h2></div>
+        </div>
+
+        <div class="manager-layout-wrapper">
+          <!-- COLLAPSIBLE VERTICAL MANAGER SIDEBAR (DOCUMENTS ABOVE PRODUCTS) -->
+          <aside class="manager-sidebar" id="manager-sidebar">
+            <div class="manager-sidebar-header">
+              <button class="icon-button mgr-toggle-btn" id="mgr-menu-toggle-btn" title="Toggle Collapse">☰</button>
+              <span class="mgr-sidebar-title">MANAGER MENU</span>
+            </div>
+
+            <nav class="manager-nav-list">
+              <button class="mgr-nav-btn active" data-mgr-tab="sales">
+                <span class="mgr-nav-icon">📄</span>
+                <span class="mgr-nav-text">Documents</span>
+              </button>
+              <button class="mgr-nav-btn" data-mgr-tab="products">
+                <span class="mgr-nav-icon">📦</span>
+                <span class="mgr-nav-text">Products</span>
+              </button>
+              <button class="mgr-nav-btn" data-mgr-tab="tools">
+                <span class="mgr-nav-icon">🔧</span>
+                <span class="mgr-nav-text">Tools &amp; Promo</span>
+              </button>
+              <button class="mgr-nav-btn" data-mgr-tab="customers">
+                <span class="mgr-nav-icon">👥</span>
+                <span class="mgr-nav-text">Users &amp; Customers</span>
+              </button>
+              <button class="mgr-nav-btn" data-mgr-tab="shops">
+                <span class="mgr-nav-icon">🏬</span>
+                <span class="mgr-nav-text">Shops &amp; Stores</span>
+              </button>
+              <button class="mgr-nav-btn" data-mgr-tab="shop-settings">
+                <span class="mgr-nav-icon">⚙️</span>
+                <span class="mgr-nav-text">Shop Settings</span>
+              </button>
+            </nav>
+          </aside>
+
+          <!-- MANAGER SUB-FRAMES CONTENT -->
+          <div class="manager-frame-container">
+            <!-- Sub-Frame 1: Documents (100% Matching DocumentsScreen.kt & Doc.py) -->
+            <div class="mgr-subframe" id="mgr-subframe-sales">
+              <span class="doc-header-tag">Documents</span>
+
+              <!-- Filter Form Grid (Doc.py / DocumentsScreen.kt) -->
+              <article class="doc-filter-panel">
+                <!-- Row 1 Filters -->
+                <div class="doc-filter-row">
+                  <label class="doc-filter-field"><span>Document ID:</span><input id="filter-doc-id" placeholder=""></label>
+                  <label class="doc-filter-field"><span>Document Type:</span><input id="filter-doc-type" placeholder=""></label>
+                  <label class="doc-filter-field"><span>Document Barcode:</span><input id="filter-doc-barcode" placeholder=""></label>
+                  <label class="doc-filter-field"><span>Extension Barcode:</span><input id="filter-ext-barcode" placeholder=""></label>
+                  <label class="doc-filter-field"><span>Item:</span><input id="filter-item" placeholder=""></label>
+                  <label class="doc-filter-field"><span>Sold Item Info:</span><input id="filter-sold-item" placeholder=""></label>
+                  <label class="doc-filter-field"><span>Discount:</span><input id="filter-discount" placeholder=""></label>
+                </div>
+
+                <!-- Row 2 Filters -->
+                <div class="doc-filter-row">
+                  <label class="doc-filter-field"><span>User ID:</span><select id="filter-user-id"><option value="">All Users</option></select></label>
+                  <label class="doc-filter-field"><span>At Shop:</span><select id="filter-at-shop"><option value="">Main Shop</option><option value="All Shops">All Shops</option></select></label>
+                  <label class="doc-filter-field"><span>Customer ID:</span><select id="filter-customer-id"><option value=""></option></select></label>
+                  <label class="doc-filter-field"><span>Seller ID:</span><select id="filter-seller-id"><option value=""></option></select></label>
+
+                  <div class="doc-checkbox-group">
+                    <input type="checkbox" id="chk-created-date" checked>
+                    <label for="chk-created-date">Created Date</label>
+                  </div>
+                  <label class="doc-filter-field"><input id="filter-date-from" type="date"></label>
+
+                  <div class="doc-checkbox-group">
+                    <input type="checkbox" id="chk-expire-date" checked>
+                    <label for="chk-expire-date">Expire Date</label>
+                  </div>
+                  <label class="doc-filter-field"><input id="filter-date-to" type="date"></label>
+
+                  <div class="doc-checkbox-group">
+                    <input type="checkbox" id="chk-updated-date" checked>
+                    <label for="chk-updated-date">Updated Date</label>
+                  </div>
+                </div>
+
+                <!-- Row 3 Blue Action Buttons Bar (Search, Veiw, Delet, Undo, GetDate) -->
+                <div class="doc-action-bar">
+                  <button class="button doc-btn-search" id="btn-doc-search">Search</button>
+                  <button class="button doc-btn-view" id="btn-doc-view">Veiw</button>
+                  <button class="button doc-btn-delete" id="btn-doc-delete">Delet</button>
+                  <button class="button doc-btn-undo" id="btn-doc-undo">Undo</button>
+                  <button class="button doc-btn-getdate" id="btn-doc-getdate">GetDate</button>
+                </div>
+              </article>
+
+              <!-- Primary Searched Seller Notebook Tabs (info_notebook in Doc.py) -->
+              <div class="notebook-tabs-row" id="seller-notebook-tabs">
+                <button class="notebook-tab active" data-seller="All Sellers">👥 All Sellers</button>
+              </div>
+
+              <!-- Secondary Sub-Notebook Tabs (user_info_notebook in Doc.py) -->
+              <div class="sub-tabs-row">
+                <button class="sub-tab active" id="tab-doc-list">📄 List Docs</button>
+                <button class="sub-tab" id="tab-doc-report">📊 Report</button>
+              </div>
+
+              <!-- Live Totals Header Bar (Doc.py) -->
+              <div class="summary-header-card" id="doc-summary-header">TOTAL DOC : 0 ITEMS : 0 COUNTED Grand Total : $0.00</div>
+
+              <!-- Sub-Tab 1: List Docs Data Table Grid (Doc.py) -->
+              <div class="panel table-panel" id="doc-list-view">
+                <div class="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th><th>doc_barcode</th><th>extension_barcode</th><th>user_id</th>
+                        <th>customer_id</th><th>Type</th><th>Items</th><th>Qty</th><th>price</th>
+                        <th>disc</th><th>tax</th><th>Payment</th><th>doc_created_date</th><th>doc_expire_date</th>
+                      </tr>
+                    </thead>
+                    <tbody id="sales-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Sub-Tab 2: Document Report & Sales History (Doc.py / Chart.py) -->
+              <div class="panel hidden" id="doc-report-view">
+                <div class="report-container">
+                  <h3>📊 Sales &amp; Financial Summary Report (Doc.py)</h3>
+                  <div class="report-metrics-grid">
+                    <div class="report-card"><span>Total Gross Revenue</span><strong id="rep-gross">$0.00</strong></div>
+                    <div class="report-card"><span>Total Documents</span><strong id="rep-count">0</strong></div>
+                    <div class="report-card"><span>Estimated Net Profit</span><strong id="rep-profit">$0.00</strong></div>
+                    <div class="report-card"><span>Cash Paid</span><strong id="rep-cash">$0.00</strong></div>
+                    <div class="report-card"><span>Card Paid</span><strong id="rep-card">$0.00</strong></div>
+                  </div>
+
+                  <div class="section-toolbar margin-top-md">
+                    <h3>Sales Reports History</h3>
+                  </div>
+                  <div class="table-scroll">
+                    <table>
+                      <thead><tr><th>Date</th><th>Transactions</th><th>Gross Sales</th></tr></thead>
+                      <tbody id="reports-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-Frame 2: Products -->
+            <div class="mgr-subframe hidden" id="mgr-subframe-products">
+              <div class="section-toolbar">
+                <h3>Products Catalogue &amp; Inventory</h3>
+                <div class="toolbar-actions">
+                  <input class="input search-input" data-search="products" placeholder="Search products...">
+                  <button class="button button-primary manager-only" data-add="products">Add Product</button>
+                </div>
+              </div>
+              <div class="panel table-panel">
+                <div class="table-scroll">
+                  <table>
+                    <thead><tr><th>Product Name</th><th>Code / Barcode</th><th>Shop</th><th>Stock Qty</th><th>Unit Price</th><th>Cost</th><th>Service</th><th>Actions</th></tr></thead>
+                    <tbody id="products-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-Frame 3: Tools & Promo -->
+            <div class="mgr-subframe hidden" id="mgr-subframe-tools">
+              <div class="section-toolbar">
+                <h3>Hardware Tools &amp; Promotional Discounts</h3>
+                <div class="toolbar-actions">
+                  <button class="button button-primary manager-only" data-add="tools">Add Tool</button>
+                  <button class="button button-primary manager-only" data-add="promotions">Add Promotion</button>
+                </div>
+              </div>
+              <div class="content-grid">
+                <article class="panel">
+                  <h3>🔧 Hardware Tools &amp; Peripherals</h3>
+                  <div class="table-scroll">
+                    <table><thead><tr><th>Tool Name</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tools-body"></tbody></table>
+                  </div>
+                </article>
+                <article class="panel">
+                  <h3>🏷️ Promotional Actions &amp; Discounts</h3>
+                  <div class="table-scroll">
+                    <table><thead><tr><th>Action Name</th><th>Discount %</th><th>Status</th><th>Actions</th></tr></thead><tbody id="promotions-body"></tbody></table>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <!-- Sub-Frame 4: Customers & Users -->
+            <div class="mgr-subframe hidden" id="mgr-subframe-customers">
+              <div class="section-toolbar">
+                <h3>Users &amp; Customers Directory</h3>
+                <div class="toolbar-actions">
+                  <input class="input search-input" data-search="users" placeholder="Search name, phone, or email...">
+                  <button class="button button-primary manager-only" data-add="users">Add User</button>
+                </div>
+              </div>
+              <div class="panel table-panel">
+                <div class="table-scroll">
+                  <table><thead><tr><th>Full Name</th><th>Username</th><th>Phone Number</th><th>Email</th><th>Role</th><th>Country</th><th>Actions</th></tr></thead><tbody id="users-body"></tbody></table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-Frame 5: Shops -->
+            <div class="mgr-subframe hidden" id="mgr-subframe-shops">
+              <div class="section-toolbar">
+                <h3>Shops &amp; Store Locations</h3>
+                <div class="toolbar-actions">
+                  <input class="input search-input" data-search="shops" placeholder="Search shops...">
+                  <button class="button button-primary manager-only" data-add="shops">Add Shop</button>
+                </div>
+              </div>
+              <div class="shop-grid" id="shops-grid"></div>
+            </div>
+
+            <!-- Sub-Frame 6: Shop Settings -->
+            <div class="mgr-subframe hidden" id="mgr-subframe-shop-settings">
+              <div class="shop-settings-tabs">
+                <button class="shop-tab active" id="tab-shop-info">🏬 Shop Info</button>
+                <button class="shop-tab" id="tab-shop-expenses">💸 Expenses</button>
+                <button class="shop-tab" id="tab-shop-workers">👥 Workers &amp; Access Control</button>
+                <button class="shop-tab" id="tab-shop-others">🏷️ Category Tree &amp; Receipt Layout</button>
+              </div>
+
+              <article class="panel shop-settings-panel" id="panel-shop-info">
+                <h3>🏬 Shop Information &amp; Preferences</h3>
+                <div class="form-grid">
+                  <label class="field"><span>Shop Name</span><input class="input" id="si-shop-name" value="Main Shop"></label>
+                  <label class="field"><span>Brand Name</span><input class="input" id="si-brand-name" value="BELLEMA FASHION"></label>
+                  <label class="field"><span>Shop Type</span><input class="input" id="si-shop-type" value="Clothing Store"></label>
+                  <label class="field"><span>Shop Owner</span><input class="input" id="si-shop-owner" value="AH Adem"></label>
+                  <label class="field"><span>Shop Email</span><input class="input" id="si-shop-email" value="info@shop.com"></label>
+                  <label class="field"><span>Shop Country</span><input class="input" id="si-shop-country" value="Ethiopia"></label>
+                </div>
+                <button class="button button-primary margin-top-sm" id="si-save-btn">SAVE SHOP INFO</button>
+              </article>
+
+              <article class="panel shop-settings-panel hidden" id="panel-shop-expenses">
+                <div class="section-toolbar">
+                  <h3>💸 Shop Expenses Manager</h3>
+                  <button class="button button-primary" id="btn-add-expense">Add Expense</button>
+                </div>
+                <div class="table-scroll">
+                  <table><thead><tr><th>ID</th><th>Title</th><th>Amount</th><th>Category</th><th>Date</th><th>Ref</th><th>Description</th></tr></thead><tbody id="expenses-body"></tbody></table>
+                </div>
+              </article>
+
+              <article class="panel shop-settings-panel hidden" id="panel-shop-workers">
+                <h3>👥 System Security Permissions &amp; Access Levels Matrix (91 Items)</h3>
+                <div class="matrix-box">
+                  <div class="table-scroll max-height-matrix">
+                    <table><thead><tr><th>Permission System Right</th><th>Required Access Level</th><th>Action</th></tr></thead><tbody id="matrix-body"></tbody></table>
+                  </div>
+                </div>
+                <div class="section-toolbar margin-top-md">
+                  <h3>Workers List</h3>
+                  <button class="button button-primary" id="btn-change-worker-level">🧮 Change Access Level</button>
+                </div>
+                <div class="table-scroll">
+                  <table><thead><tr><th>ID</th><th>Full Name</th><th>Username</th><th>Role</th><th>Shop</th><th>Access Level</th></tr></thead><tbody id="workers-body"></tbody></table>
+                </div>
+              </article>
+
+              <article class="panel shop-settings-panel hidden" id="panel-shop-others">
+                <h3>🏷️ Category Tree &amp; Receipt Layout</h3>
+                <div class="content-grid">
+                  <div><h4>Product Hierarchy Categories</h4><ul class="simple-list" id="category-tree-list"></ul></div>
+                  <div><h4>Receipt Layout Order</h4><ul class="simple-list" id="slip-layout-list"></ul></div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. APP PREFERENCES VIEW -->
+      <section class="view" id="view-settings">
+        <div class="section-toolbar"><div><p class="eyebrow">CONFIGURATION</p><h2>Application Preferences</h2></div><button class="button button-secondary" id="refresh-data">Refresh Data</button></div>
+        <div class="settings-grid">
+          <article class="panel"><p class="eyebrow">SQL DATABASE</p><h3>Server Connection Status</h3><div class="connection-detail" id="settings-connection">Checking…</div></article>
+          <article class="panel"><p class="eyebrow">SESSION</p><h3>Signed-in Account</h3><div class="profile-line"><span class="avatar" id="user-avatar">?</span><div><strong id="settings-user">Not signed in</strong><small id="settings-role">—</small></div></div><button class="button button-secondary" id="settings-logout">Sign out</button></article>
+          <article class="panel"><p class="eyebrow">UPLOADS</p><h3>Product or Shop Image Upload</h3><label class="button button-secondary upload-button">Choose Image<input id="image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label><p class="form-message" id="upload-message" role="status"></p></article>
+        </div>
+      </section>
+      <div class="toast" id="toast" role="status"></div>
+    </main>
+  </div>
+
+  <!-- SECURITY LOGIN MODAL -->
+  <dialog class="dialog" id="login-dialog">
+    <form class="dialog-card security-login-card" id="login-form">
+      <div class="dialog-brand security-brand">
+        <span class="brand-mark security-mark">🔒</span>
+        <div><p class="eyebrow security-eyebrow">SECURITY AUTHORIZATION</p><h2>System Security Login</h2></div>
+      </div>
+      <p class="muted security-info">Enter your system credentials or server API link to unlock POS Terminal &amp; Manager features.</p>
+      <label class="field security-field"><span>Username or Email</span><input class="input security-input" name="username" value="admin" autocomplete="username" required></label>
+      <label class="field security-field"><span>Password</span><input class="input security-input" name="password" type="password" value="admin" autocomplete="current-password" required></label>
+      <label class="field security-field"><span>Server API Link</span><input class="input security-input" name="serverLink" id="login-server-link" value="https://api.hipermarket.com/v1"></label>
+      <p class="form-message" id="login-message" role="alert"></p>
+      <div class="security-actions-group">
+        <button class="button button-primary full-width security-submit-btn" type="submit">🔒 Security Sign In</button>
+        <button class="button button-secondary full-width margin-top-sm security-pass-btn" type="button" id="quick-pass-btn">⚡ Quick Pass as Admin</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- KEYPAD MODAL -->
+  <dialog class="dialog" id="keypad-dialog">
+    <div class="dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">NUMERIC KEYPAD</p><h2 id="keypad-title">Change Value (0-10)</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></div>
+      <input class="input keypad-display" id="keypad-input" type="text" value="0">
+      <div class="keypad-grid">
+        <button class="keypad-btn" data-key="7">7</button><button class="keypad-btn" data-key="8">8</button><button class="keypad-btn" data-key="9">9</button>
+        <button class="keypad-btn" data-key="4">4</button><button class="keypad-btn" data-key="5">5</button><button class="keypad-btn" data-key="6">6</button>
+        <button class="keypad-btn" data-key="1">1</button><button class="keypad-btn" data-key="2">2</button><button class="keypad-btn" data-key="3">3</button>
+        <button class="keypad-btn" data-key="0">0</button><button class="keypad-btn" data-key=".">.</button><button class="keypad-btn danger" data-key="clear">CLR</button>
+      </div>
+      <div class="dialog-actions">
+        <button class="button button-secondary" type="button" data-close-dialog>Cancel</button>
+        <button class="button button-primary" type="button" id="keypad-confirm-btn">Confirm Value</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="dialog" id="record-dialog"><form class="dialog-card"><div class="dialog-heading"><div><p class="eyebrow">RECORD EDITOR</p><h2 id="record-title">Add record</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></div><div id="record-fields" class="record-fields"></div><p class="form-message" id="record-message" role="status"></p><div class="dialog-actions"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Save record</button></div></form></dialog>
+
+  <dialog class="dialog" id="sale-detail-dialog"><div class="dialog-card"><div class="dialog-heading"><div><p class="eyebrow">RECEIPT</p><h2 id="receipt-title">Sale details</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></div><pre class="receipt-paper" id="receipt-content"></pre><div class="dialog-actions"><button class="button button-secondary" type="button" id="print-receipt">Print Receipt</button><button class="button button-primary" type="button" data-close-dialog>Done</button></div></div></dialog>
+</body>
+</html>

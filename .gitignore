@@ -1,0 +1,18 @@
+# IDE files
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Application upload & temporary files
+uploads/*
+!uploads/.htaccess
+
+# Local database / secrets
+data/
+*.db
+*.log

@@ -1,0 +1,95 @@
+/**
+ * manager.css - Vertical Collapsible Manager Sidebar & Sub-Frames (Matching ManageForm.py)
+ */
+.manager-layout-wrapper {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.manager-sidebar {
+  width: 220px;
+  flex: 0 0 auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 8px;
+  transition: width 0.2s ease;
+}
+
+/* Collapsed Icons-Only State */
+.manager-sidebar.collapsed {
+  width: 60px;
+}
+
+.manager-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.mgr-sidebar-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--success);
+  letter-spacing: .12em;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+.manager-sidebar.collapsed .mgr-sidebar-title {
+  display: none;
+}
+
+.manager-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mgr-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.mgr-nav-btn:hover {
+  background: var(--panel-raised);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.mgr-nav-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+.mgr-nav-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+.manager-sidebar.collapsed .mgr-nav-text {
+  display: none;
+}
+
+.manager-frame-container {
+  flex: 1;
+  min-width: 0;
+}

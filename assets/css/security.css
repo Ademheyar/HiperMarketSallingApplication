@@ -1,0 +1,101 @@
+/**
+ * security.css - Security Login Form Modal Styling (Matching SecurityLoginModal)
+ */
+.security-login-card {
+  padding: 28px;
+  border: 1px solid var(--accent);
+  background: var(--panel);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.security-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.security-mark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(21, 101, 192, 0.4);
+}
+
+.security-eyebrow {
+  color: var(--success);
+  font-weight: 800;
+  letter-spacing: .15em;
+  font-size: 10px;
+}
+
+.security-login-card h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 2px 0 0;
+  color: var(--text);
+}
+
+.security-info {
+  margin-bottom: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.security-field {
+  margin-bottom: 14px;
+}
+
+.security-field span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #b9c6d3;
+}
+
+.security-input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  background: #08111e;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.security-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.3);
+}
+
+.security-actions-group {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.security-submit-btn {
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 800;
+  background: var(--accent);
+  border-radius: 8px;
+}
+
+.security-pass-btn {
+  min-height: 40px;
+  font-size: 12px;
+  font-weight: 700;
+  border-color: var(--success);
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.security-pass-btn:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: var(--success);
+}

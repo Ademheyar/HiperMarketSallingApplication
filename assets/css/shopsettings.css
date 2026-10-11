@@ -1,0 +1,18 @@
+/**
+ * shopsettings.css - Manager Shop Settings Module (#view-shop-settings)
+ */
+.shop-settings-tabs { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; }
+.shop-tab { padding: 8px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-raised); color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.shop-tab.active { background: var(--accent); color: #ffffff; border-color: var(--accent); }
+
+.max-height-matrix { max-height: 220px; overflow-y: auto; }
+.simple-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.simple-list li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: #0b1726; font-size: 12px; }
+
+.shop-grid, .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.shop-card { display: flex; min-height: 140px; align-items: flex-start; gap: 14px; }
+.shop-icon { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border-radius: 12px; background: rgb(21 101 192 / 20%); color: var(--accent); font-size: 19px; }
+
+@media (max-width: 640px) {
+  .shop-grid, .settings-grid { grid-template-columns: 1fr; }
+}
